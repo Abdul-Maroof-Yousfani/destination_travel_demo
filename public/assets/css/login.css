@@ -1,0 +1,125 @@
+/* @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@100;300&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+:root {
+    --main-color: #1e737e38;
+    --second-color: #127f9fe0;
+}
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: var(--main-color);
+    font-family: 'Poppins', sans-serif;
+}
+.container {
+    background: var(--main-color);
+    padding: 3em 4em;
+    border-radius: 20px;
+    border: 2px solid var(--second-color);
+}
+.registerText a {
+    color: var(--second-color);
+    font-weight: bolder;
+}
+.headline {
+    font-size: 1.5em;
+    font-weight: bolder;
+}
+@media(max-width: 950px) {
+    .container {
+        width: 100% !important;
+    }
+}
+.loginBtn {
+    width: 105%;
+    height: 40px;
+    border: none;
+    margin: 0.5em 0;
+    border-radius: 10px;
+    transform: translate(-1%);
+    background: linear-gradient(to right , #127f9fe0 ,#3587a0c5);
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.4s;
+}
+
+.loginBtn:hover {
+    box-shadow: 0 0 10px #ffffff56;
+    transform: translate(-1% , 5%);
+} */
+.search-bookings {
+    padding: 80px 0;
+    background: #f8fafc;
+}
+
+.booking-box {
+    background: #fff;
+    padding: 40px 50px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    width: 400px;
+    text-align: center;
+}
+
+.booking-box h2 {
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 30px;
+    color: #222;
+}
+
+.form-group {
+    text-align: left;
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    font-size: 14px;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 6px;
+    color: #333;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.form-group input:focus {
+    border-color: #666;
+}
+
+.form-note {
+    font-size: 12px;
+    color: #666;
+    margin-top: 4px;
+}
+
+button {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    background: #e5e5e5;
+    border: none;
+    border-radius: 4px;
+    cursor: not-allowed;
+    color: #666;
+}
+
+button.active {
+    background: #127F9F;
+    color: #fff;
+    cursor: pointer;
+}

@@ -1,0 +1,72 @@
+Request: <?xml version="1.0" encoding="utf-8"?>
+            <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns1="http://farelogix.com/ns1" xmlns:t="http://farelogix.com/flx/t">
+                <SOAP-ENV:Header>
+                    <t:TransactionControl>
+                        <tc>
+                            <iden u="otadestinations" p="Paktg24580" pseudocity="ETXO" agt="otadestinations" agtpwd="Paktg24580" agy="27301245"/>
+                            <agent user="otadestinations"/>
+                            <trace>ETXO_ek</trace>
+                            <script engine="FLXDM" name="travelandtour-ek-dispatch.flxdm"/>
+                        </tc>
+                    </t:TransactionControl>
+                </SOAP-ENV:Header>
+                <SOAP-ENV:Body>
+                    <ns1:XXTransaction>
+                        <REQ>
+                            <AirShoppingRQ Version="17.2" TransactionIdentifier="l6gEQTeXZLbwxe1PxV6wl7Ykkgob6z">
+                        <Document id="document"/>
+                        <Party>
+                            <Sender>
+                                <TravelAgencySender>
+                                    <PseudoCity>ETXO</PseudoCity>
+                                    <AgencyID>27301245</AgencyID>
+                                </TravelAgencySender>
+                            </Sender>
+                        </Party>
+                        <CoreQuery>
+                            <OriginDestinations>
+                                <OriginDestination OriginDestinationKey="OD1">
+                                    <Departure>
+                                        <AirportCode>BAH</AirportCode>
+                                        <Date>2025-09-03</Date>
+                                    </Departure>
+                                    <Arrival>
+                                        <AirportCode>AMM</AirportCode>
+                                    </Arrival>
+                                </OriginDestination>
+                                
+            <OriginDestination OriginDestinationKey="OD2">
+                <Departure>
+                    <AirportCode>AMM</AirportCode>
+                    <Date>2025-09-26</Date>
+                </Departure>
+                <Arrival>
+                    <AirportCode>BAH</AirportCode>
+                </Arrival>
+            </OriginDestination>
+                            </OriginDestinations>
+                        </CoreQuery>
+                        <Preference>
+                            <CabinPreferences>
+                                <CabinType>
+                                    <Code>Y</Code>
+                                    <OriginDestinationReferences>OD1</OriginDestinationReferences>
+                                </CabinType>
+                                
+                <CabinType>
+                    <Code>Y</Code>
+                    <OriginDestinationReferences>OD2</OriginDestinationReferences>
+                </CabinType>
+                            </CabinPreferences>
+                        </Preference>
+                        <DataLists>
+                            <PassengerList>
+                <Passenger PassengerID="T1">
+                    <PTC>ADT</PTC>
+                </Passenger></PassengerList>
+                        </DataLists>
+                    </AirShoppingRQ>
+                        </REQ>
+                    </ns1:XXTransaction>
+                </SOAP-ENV:Body>
+            </SOAP-ENV:Envelope>
