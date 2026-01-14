@@ -1,0 +1,59 @@
+name: Deploy Laravel Project
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 1. Files upload karna (Khali folder me saari files chali jayengi)
+      - name: Copy files via SFTP
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SFTP_HOST }}
+          username: ${{ secrets.SFTP_USER }}
+          password: ${{ secrets.SFTP_PASS }}
+          port: 22
+          source: "."
+          target: "/var/www/travel-demo/"
+          strip_components: 0
+
+      
+      # 2. Permissions aur Laravel setup
+      - name: Execute SSH commands
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SFTP_HOST }}
+          username: ${{ secrets.SFTP_USER }}
+          password: ${{ secrets.SFTP_PASS }}
+          script: |
+            cd /var/www/travel-demo
+            
+            # Directory structure create karna (Sudo ki zaroorat nahi)
+            mkdir -p storage/framework/{sessions,views,cache}
+            mkdir -p bootstrap/cache
+
+            # Permissions set karna (Sirf un folders par jo user owned hain)
+            find . -type d -exec chmod 775 {} \;
+            find . -type f -exec chmod 664 {} \;
+            chmod -R 775 storage bootstrap/cache
+
+            # Laravel Optimization
+            # Agar composer path me nahi hai to full path use karein: /usr/local/bin/composer
+            composer install --no-dev --optimize-autoloader --no-interaction
+
+            # Cache clear (ye tabhi chalega jab .env file server par maujood ho)
+            if [ -f .env ]; then
+                php artisan config:cache
+                php artisan route:cache
+                php artisan view:cache
+                # php artisan migrate --force
+            else
+                echo ".env file not found, skipping artisan commands"
+            fi
