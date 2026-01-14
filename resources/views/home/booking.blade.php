@@ -192,16 +192,16 @@
                                              </div>
                                           </div>
                                           <div class="method-feild">
-                                             <div class="form-group">
+                                             <!-- <div class="form-group">
                                                 <label for="">select Transfer Method</label> 
-                                             <select class="form-control" name="" id="">
-                                                <option></option>
-                                                <option></option>
-                                                <option></option>
-                                             </select>
-                                             </div>
+                                                <select class="form-control" name="" id="">
+                                                   <option></option>
+                                                   <option></option>
+                                                   <option></option>
+                                                </select>
+                                             </div> -->
                                              <div class="form-group">
-                                             <label for="paymentType">select Bank</label>
+                                             <label for="paymentType">Select Bank</label>
                                                 <select class="form-control" name="paymentType" id="paymentType">
                                                    <option value="card">Card payment</option>
                                                    <option value="cash">Pay cash at your nearest travelandtour franchise.</option>
