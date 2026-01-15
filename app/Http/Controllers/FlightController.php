@@ -193,8 +193,8 @@ class FlightController extends Controller
     }
     public function bookingDetails(Request $request)
     {
+        dd($request->all());
         $airline = $request->airline ?? '';
-        dd($airline);
         if (empty($airline)) {
             return response()->json([
                 'status' => 'error',
