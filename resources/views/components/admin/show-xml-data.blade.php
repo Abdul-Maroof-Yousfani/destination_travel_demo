@@ -1268,469 +1268,652 @@
                 <div class="alert alert-warning">No booking request data available for PIA.</div>
             @endif
         @elseif ($airline === 'airblue')
-            @if ($bookingRequest && is_array($xmlBody) && !empty($xmlBody['data']))
+            @if ($bookingRequest && is_array($xmlBody) && (!empty($xmlBody['data']) || !empty($xmlBody)))
                 @php
-                    $data = $xmlBody['data'] ?? [];
-                    $bookingInfo = $data['booking'] ?? [];
-                    $flights = $data['flights'] ?? [];
-                    $travelers = $data['travelers'] ?? [];
-                    $seats = $data['seats'] ?? [];
-                    $ancillaries = $data['ancillaries'] ?? [];
-                    $priceBreakdown = $data['price_breakdown'] ?? [];
-                    $raw = $data['raw'] ?? [];
+                    // Check if it's the new structure
+                    $isNewStructure = isset($xmlBody['itinerary']) || isset($xmlBody['fare_breakdown']);
+                    
+                    // Common Data
+                    $data = $xmlBody['data'] ?? $xmlBody ?? [];
                 @endphp
-                <div class="accordion" id="bookingAccordion">
-                    <!-- General Booking Information -->
-                    <div class="accordion-item">
-                        <h2 class="accordion-header" id="generalInfoHeading">
-                            <button class="accordion-button" type="button" data-bs-toggle="collapse"
-                                data-bs-target="#generalInfo" aria-expanded="true" aria-controls="generalInfo">
-                                General Booking Information Airblue
-                            </button>
-                        </h2>
-                        <div id="generalInfo" class="accordion-collapse collapse show"
-                            aria-labelledby="generalInfoHeading" data-bs-parent="#bookingAccordion">
-                            <div class="accordion-body">
-                                <ul class="list-group list-group-flush">
-                                    <li class="list-group-item"><strong>ID:</strong>
-                                        {{ $bookingRequest->id ?? 'N/A' }}</li>
-                                    <li class="list-group-item"><strong>Airline:</strong>
-                                        {{ $bookingRequest->airline ?? 'N/A' }}</li>
-                                    <li class="list-group-item"><strong>PNR:</strong>
-                                        {{ $bookingInfo['pnr'] ?? 'N/A' }}</li>
-                                    <li class="list-group-item"><strong>Instance:</strong>
-                                        {{ $bookingInfo['instance'] ?? 'N/A' }}</li>
-                                    <li class="list-group-item"><strong>Ticket Time Limit:</strong>
-                                        {{ !empty($data['ticket_time_limit']) ? \Carbon\Carbon::parse($data['ticket_time_limit'])->format('d M Y, H:i') : 'N/A' }}
-                                    </li>
-                                    <li class="list-group-item"><strong>Status:</strong>
-                                        {{ !empty($data['success']) ? ($data['success'] === 'true' ? 'Success' : 'Failed') : 'N/A' }}
-                                    </li>
-                                    <li class="list-group-item"><strong>Total Amount:</strong>
-                                        {{ !empty($data['total']['amount']) && !empty($data['total']['currency']) ? $data['total']['currency'] . ' ' . number_format($data['total']['amount'], 2) : 'N/A' }}
-                                    </li>
-                                    <li class="list-group-item"><strong>Client ID:</strong>
-                                        {{ $bookingRequest->client_id ?? 'N/A' }}</li>
-                                    <li class="list-group-item"><strong>Booking ID:</strong>
-                                        {{ $bookingRequest->booking_id ?? 'N/A' }}</li>
-                                    <li class="list-group-item"><strong>Created At:</strong>
-                                        {{ !empty($bookingRequest->created_at) ? \Carbon\Carbon::parse($bookingRequest->created_at)->format('d M Y, H:i') : 'N/A' }}
-                                    </li>
-                                    <li class="list-group-item"><strong>Updated At:</strong>
-                                        {{ !empty($bookingRequest->updated_at) ? \Carbon\Carbon::parse($bookingRequest->updated_at)->format('d M Y, H:i') : 'N/A' }}
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
 
-                    <!-- User Information -->
-                    @if (!empty($xmlBody['user']) && is_array($xmlBody['user']))
-                        <div class="accordion-item">
-                            <h2 class="accordion-header" id="userInfoHeading">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#userInfo" aria-expanded="false" aria-controls="userInfo">
-                                    User Information
+                @if($isNewStructure)
+                     {{-- NEW STRUCTURE VIEW --}}
+                    <div class="accordion" id="bookingAccordion">
+                        <!-- General Booking Information -->
+                         <div class="accordion-item">
+                            <h2 class="accordion-header" id="generalInfoHeading">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#generalInfo" aria-expanded="true" aria-controls="generalInfo">
+                                    General Booking Information (Airblue)
                                 </button>
                             </h2>
-                            <div id="userInfo" class="accordion-collapse collapse" aria-labelledby="userInfoHeading"
-                                data-bs-parent="#bookingAccordion">
+                            <div id="generalInfo" class="accordion-collapse collapse show"
+                                aria-labelledby="generalInfoHeading" data-bs-parent="#bookingAccordion">
                                 <div class="accordion-body">
                                     <ul class="list-group list-group-flush">
-                                        <li class="list-group-item"><strong>Full Name:</strong>
-                                            {{ $xmlBody['user']['userFullName'] ?? 'N/A' }}</li>
-                                        <li class="list-group-item"><strong>Email:</strong>
-                                            {{ $xmlBody['user']['userEmail'] ?? 'N/A' }}</li>
-                                        <li class="list-group-item"><strong>Phone:</strong>
-                                            {{ !empty($xmlBody['user']['userPhoneCode']) ? '+' . $xmlBody['user']['userPhoneCode'] . ' ' : '' }}{{ $xmlBody['user']['userPhone'] ?? 'N/A' }}
+                                        <li class="list-group-item"><strong>Booking ID:</strong> {{ $data['booking']['id'] ?? 'N/A' }}</li>
+                                        <li class="list-group-item"><strong>Instance:</strong> {{ $data['booking']['instance'] ?? 'N/A' }}</li>
+                                        <li class="list-group-item"><strong>Status:</strong> <span class="badge bg-{{ ($data['status'] ?? '') == 'OK' ? 'success' : 'warning' }}">{{ $data['status'] ?? 'N/A' }}</span></li>
+                                        <li class="list-group-item"><strong>Ticket Time Limit:</strong> 
+                                            {{ !empty($data['ticket_time_limit']) ? \Carbon\Carbon::parse($data['ticket_time_limit'])->format('d M Y, H:i') : 'N/A' }}
                                         </li>
-                                        <li class="list-group-item"><strong>City:</strong>
-                                            {{ $xmlBody['user']['city'] ?? 'N/A' }}</li>
-                                        <li class="list-group-item"><strong>Country:</strong>
-                                            {{ $xmlBody['user']['country'] ?? 'N/A' }}</li>
+                                        <li class="list-group-item"><strong>Total Fare:</strong> 
+                                            {{ $data['total_fare']['code'] ?? 'PKR' }} {{ number_format($data['total_fare']['amount'] ?? 0, 2) }}
+                                        </li>
                                     </ul>
                                 </div>
                             </div>
                         </div>
-                    @endif
 
-                    <!-- Passenger Information -->
-                    @if (!empty($xmlBody['passengers']) && is_array($xmlBody['passengers']))
-                        <div class="accordion-item">
-                            <h2 class="accordion-header" id="passengerInfoHeading">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#passengerInfo" aria-expanded="false"
-                                    aria-controls="passengerInfo">
-                                    Passenger Information
-                                </button>
-                            </h2>
-                            <div id="passengerInfo" class="accordion-collapse collapse"
-                                aria-labelledby="passengerInfoHeading" data-bs-parent="#bookingAccordion">
-                                <div class="accordion-body">
-                                    @foreach ($xmlBody['passengers'] as $index => $passenger)
-                                        <div class="card mb-3">
-                                            <div class="card-header">
-                                                Passenger {{ $index + 1 }} ({{ $passenger['type'] ?? 'N/A' }})
-                                            </div>
-                                            <div class="card-body">
-                                                <ul class="list-group list-group-flush">
-                                                    <li class="list-group-item"><strong>Name:</strong>
-                                                        {{ !empty($passenger['title']) ? $passenger['title'] . ' ' : '' }}{{ $passenger['name'] ?? '' }}
-                                                        {{ $passenger['surname'] ?? '' }}</li>
-                                                    <li class="list-group-item"><strong>Date of Birth:</strong>
-                                                        {{ !empty($passenger['dob']) ? \Carbon\Carbon::parse($passenger['dob'])->format('d M Y') : 'N/A' }}
-                                                    </li>
-                                                    <li class="list-group-item"><strong>Nationality:</strong>
-                                                        {{ $passenger['nationality'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Passport Number:</strong>
-                                                        {{ $passenger['passportNumber'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Passport Expiry:</strong>
-                                                        {{ !empty($passenger['passportExpiry']) ? \Carbon\Carbon::parse($passenger['passportExpiry'])->format('d M Y') : 'N/A' }}
-                                                    </li>
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                        </div>
-                    @endif
-
-                    <!-- Travelers Information -->
-                    @if (!empty($travelers) && is_array($travelers))
-                        <div class="accordion-item">
-                            <h2 class="accordion-header" id="travelersInfoHeading">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#travelersInfo" aria-expanded="false"
-                                    aria-controls="travelersInfo">
-                                    Travelers Information
-                                </button>
-                            </h2>
-                            <div id="travelersInfo" class="accordion-collapse collapse"
-                                aria-labelledby="travelersInfoHeading" data-bs-parent="#bookingAccordion">
-                                <div class="accordion-body">
-                                    @foreach ($travelers as $traveler)
-                                        <div class="card mb-3">
-                                            <div class="card-header">
-                                                Traveler {{ $traveler['rph'] ?? 'N/A' }}
-                                                ({{ $traveler['type'] ?? 'N/A' }})
-                                            </div>
-                                            <div class="card-body">
-                                                <ul class="list-group list-group-flush">
-                                                    <li class="list-group-item"><strong>Full Name:</strong>
-                                                        {{ $traveler['full_name'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>First Name:</strong>
-                                                        {{ $traveler['first_name'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Last Name:</strong>
-                                                        {{ $traveler['last_name'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Title:</strong>
-                                                        {{ $traveler['title'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Birth Date:</strong>
-                                                        {{ !empty($traveler['birth_date']) ? \Carbon\Carbon::parse($traveler['birth_date'])->format('d M Y') : 'N/A' }}
-                                                    </li>
-                                                    <li class="list-group-item"><strong>Phone:</strong>
-                                                        {{ $traveler['phone'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Email:</strong>
-                                                        {{ $traveler['email'] ?? 'N/A' }}</li>
-                                                    @if (!empty($traveler['document']))
-                                                        <li class="list-group-item"><strong>Document ID:</strong>
-                                                            {{ $traveler['document']['id'] ?? 'N/A' }}</li>
-                                                        <li class="list-group-item"><strong>Document Type:</strong>
-                                                            {{ $traveler['document']['type'] ?? 'N/A' }}</li>
-                                                        <li class="list-group-item"><strong>Issue Country:</strong>
-                                                            {{ $traveler['document']['issue_country'] ?? 'N/A' }}</li>
-                                                        <li class="list-group-item"><strong>Nationality:</strong>
-                                                            {{ $traveler['document']['nationality'] ?? 'N/A' }}</li>
-                                                        <li class="list-group-item"><strong>Expire Date:</strong>
-                                                            {{ !empty($traveler['document']['expire_date']) ? \Carbon\Carbon::parse($traveler['document']['expire_date'])->format('d M Y') : 'N/A' }}
+                        <!-- Passengers -->
+                        @if (!empty($data['passengers']) && is_array($data['passengers']))
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="passengersHeading">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#passengers" aria-expanded="false" aria-controls="passengers">
+                                        Passengers
+                                    </button>
+                                </h2>
+                                <div id="passengers" class="accordion-collapse collapse" aria-labelledby="passengersHeading"
+                                    data-bs-parent="#bookingAccordion">
+                                    <div class="accordion-body">
+                                        @foreach ($data['passengers'] as $index => $pax)
+                                            <div class="card mb-3">
+                                                <div class="card-header d-flex justify-content-between">
+                                                    <span>
+                                                        Passenger {{ $index + 1 }} 
+                                                        ({{ $pax['type'] ?? 'ADT' }})
+                                                    </span>
+                                                    <span class="badge bg-info">{{ $pax['rph'] ?? '' }}</span>
+                                                </div>
+                                                <div class="card-body">
+                                                    <ul class="list-group list-group-flush">
+                                                        <li class="list-group-item"><strong>Name:</strong> 
+                                                            {{ $pax['title'] ?? '' }} {{ $pax['first_name'] ?? '' }} {{ $pax['last_name'] ?? '' }}
                                                         </li>
-                                                    @endif
-                                                    @if (!empty($traveler['segments']))
-                                                        <li class="list-group-item">
-                                                            <strong>Flight Segments:</strong>
-                                                            {{ is_array($traveler['segments'])
-                                                                ? implode(', ', $traveler['segments'])
-                                                                : $traveler['segments'] }}
-                                                        </li>
-                                                    @endif
-                                                </ul>
+                                                        <li class="list-group-item"><strong>Birth Date:</strong> {{ $pax['birth_date'] ?? 'N/A' }}</li>
+                                                        
+                                                        @if(!empty($pax['phone']))
+                                                            <li class="list-group-item"><strong>Phone:</strong> 
+                                                                +{{ $pax['phone']['CountryAccessCode'] ?? '' }} {{ $pax['phone']['PhoneNumber'] ?? '' }}
+                                                            </li>
+                                                        @endif
+                                                        
+                                                        <li class="list-group-item"><strong>Email:</strong> {{ $pax['email'] ?? 'N/A' }}</li>
+
+                                                        @if(!empty($pax['document']))
+                                                            <li class="list-group-item">
+                                                                <strong>Document:</strong> <br>
+                                                                Type: {{ $pax['document']['DocType'] ?? 'N/A' }} | 
+                                                                ID: {{ $pax['document']['DocID'] ?? 'N/A' }} | 
+                                                                Issues: {{ $pax['document']['DocIssueCountry'] ?? 'N/A' }} | 
+                                                                Exp: {{ $pax['document']['ExpireDate'] ?? 'N/A' }}
+                                                            </li>
+                                                        @endif
+                                                    </ul>
+                                                </div>
                                             </div>
-                                        </div>
-                                    @endforeach
+                                        @endforeach
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    @endif
+                        @endif
 
-                    <!-- Flight Segments -->
-                    @if (!empty($flights) && is_array($flights))
-                        <div class="accordion-item">
-                            <h2 class="accordion-header" id="segmentsHeading">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#segments" aria-expanded="false" aria-controls="segments">
-                                    Flight Segments
-                                </button>
-                            </h2>
-                            <div id="segments" class="accordion-collapse collapse" aria-labelledby="segmentsHeading"
-                                data-bs-parent="#bookingAccordion">
-                                <div class="accordion-body">
-                                    @foreach ($flights as $flight)
-                                        <div class="card mb-3">
-                                            <div class="card-header">
-                                                Segment {{ $flight['rph'] ?? 'N/A' }}:
-                                                {{ $flight['departure_airport'] ?? 'N/A' }} to
-                                                {{ $flight['arrival_airport'] ?? 'N/A' }}
-                                            </div>
-                                            <div class="card-body">
-                                                <h6>Flight Details</h6>
-                                                <ul class="list-group list-group-flush">
-                                                    <li class="list-group-item"><strong>Flight Number:</strong>
-                                                        {{ $flight['flight_number'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Departure:</strong>
-                                                        {{ $flight['departure_airport'] ?? 'N/A' }}{{ !empty($flight['departure_terminal']) ? ' (Terminal ' . $flight['departure_terminal'] . ')' : '' }}
-                                                        on
-                                                        {{ !empty($flight['departure_datetime']) ? \Carbon\Carbon::parse($flight['departure_datetime'])->format('d M Y, H:i') : 'N/A' }}
-                                                    </li>
-                                                    <li class="list-group-item"><strong>Arrival:</strong>
-                                                        {{ $flight['arrival_airport'] ?? 'N/A' }}{{ !empty($flight['arrival_terminal']) ? ' (Terminal ' . $flight['arrival_terminal'] . ')' : '' }}
-                                                        on
-                                                        {{ !empty($flight['arrival_datetime']) ? \Carbon\Carbon::parse($flight['arrival_datetime'])->format('d M Y, H:i') : 'N/A' }}
-                                                    </li>
-                                                    <li class="list-group-item"><strong>Duration:</strong>
-                                                        {{ !empty($flight['departure_datetime']) && !empty($flight['arrival_datetime']) ? \Carbon\Carbon::parse($flight['departure_datetime'])->diffInMinutes(\Carbon\Carbon::parse($flight['arrival_datetime'])) . ' minutes' : 'N/A' }}
-                                                    </li>
-                                                    <li class="list-group-item"><strong>Operating Airline:</strong>
-                                                        {{ $flight['operating_airline'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Marketing Airline:</strong>
-                                                        {{ $flight['marketing_airline'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Aircraft:</strong>
-                                                        {{ $flight['equipment'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Cabin Class:</strong>
-                                                        {{ $flight['cabin'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Fare Type:</strong>
-                                                        {{ $flight['fare_type'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Status:</strong>
-                                                        {{ $flight['status'] ?? 'N/A' }}</li>
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                        </div>
-                    @endif
-
-                    <!-- Seats Information -->
-                    @if (!empty($seats) && is_array($seats))
-                        <div class="accordion-item">
-                            <h2 class="accordion-header" id="seatsInfoHeading">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#seatsInfo" aria-expanded="false" aria-controls="seatsInfo">
-                                    Seat Selections
-                                </button>
-                            </h2>
-                            <div id="seatsInfo" class="accordion-collapse collapse"
-                                aria-labelledby="seatsInfoHeading" data-bs-parent="#bookingAccordion">
-                                <div class="accordion-body">
-                                    @foreach ($seats as $seat)
-                                        <div class="card mb-3">
-                                            <div class="card-header">
-                                                Seat:
-                                                {{ $seat['row_number'] ?? 'N/A' }}{{ $seat['seat_number'] ?? 'N/A' }}
-                                                (Flight RPH: {{ $seat['flight_rph'] ?? 'N/A' }})
-                                            </div>
-                                            <div class="card-body">
-                                                <ul class="list-group list-group-flush">
-                                                    <li class="list-group-item"><strong>Traveler RPH:</strong>
-                                                        {{ $seat['traveler_rph'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Seat:</strong> Row
-                                                        {{ $seat['row_number'] ?? 'N/A' }}, Seat
-                                                        {{ $seat['seat_number'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Status:</strong>
-                                                        {{ $seat['status'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Price:</strong>
-                                                        {{ !empty($seat['price']) && !empty($seat['currency']) ? $seat['currency'] . ' ' . number_format($seat['price'], 2) : 'Free' }}
-                                                    </li>
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                        </div>
-                    @endif
-
-                    <!-- Ancillaries (Add-ons) -->
-                    @if (!empty($ancillaries) && is_array($ancillaries))
-                        <div class="accordion-item">
-                            <h2 class="accordion-header" id="ancillariesInfoHeading">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#ancillariesInfo" aria-expanded="false"
-                                    aria-controls="ancillariesInfo">
-                                    Ancillaries (Add-ons)
-                                </button>
-                            </h2>
-                            <div id="ancillariesInfo" class="accordion-collapse collapse"
-                                aria-labelledby="ancillariesInfoHeading" data-bs-parent="#bookingAccordion">
-                                <div class="accordion-body">
-                                    @foreach ($ancillaries as $ancillary)
-                                        <div class="card mb-3">
-                                            <div class="card-header">
-                                                {{ $ancillary['title'] ?? 'N/A' }} (Flight RPH:
-                                                {{ $ancillary['flight_rph'] ?? 'N/A' }})
-                                            </div>
-                                            <div class="card-body">
-                                                <ul class="list-group list-group-flush">
-                                                    <li class="list-group-item"><strong>SSR Code:</strong>
-                                                        {{ $ancillary['ssr_code'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Item Code:</strong>
-                                                        {{ $ancillary['item_code'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Title:</strong>
-                                                        {{ $ancillary['title'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Description:</strong>
-                                                        {{ $ancillary['description'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Traveler RPH:</strong>
-                                                        {{ $ancillary['traveler_rph'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Price:</strong>
-                                                        {{ !empty($ancillary['price']) && !empty($ancillary['currency']) ? $ancillary['currency'] . ' ' . number_format($ancillary['price'], 2) : 'Free' }}
-                                                    </li>
-                                                    <li class="list-group-item"><strong>Status:</strong>
-                                                        {{ $ancillary['status'] ?? 'N/A' }}</li>
-                                                    <li class="list-group-item"><strong>Refundable:</strong>
-                                                        {{ !empty($ancillary['refundable']) ? ($ancillary['refundable'] === 'true' ? 'Yes' : 'No') : 'N/A' }}
-                                                    </li>
-                                                    <li class="list-group-item"><strong>Expires:</strong>
-                                                        {{ !empty($ancillary['expires']) ? \Carbon\Carbon::parse($ancillary['expires'])->format('d M Y, H:i') : 'N/A' }}
-                                                    </li>
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                        </div>
-                    @endif
-
-                    <!-- Pricing Information -->
-                    @if (!empty($priceBreakdown) && is_array($priceBreakdown))
-                        <div class="accordion-item">
-                            <h2 class="accordion-header" id="pricingInfoHeading">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#pricingInfo" aria-expanded="false" aria-controls="pricingInfo">
-                                    Pricing Information
-                                </button>
-                            </h2>
-                            <div id="pricingInfo" class="accordion-collapse collapse"
-                                aria-labelledby="pricingInfoHeading" data-bs-parent="#bookingAccordion">
-                                <div class="accordion-body">
-                                    @foreach ($priceBreakdown as $breakdown)
-                                        <div class="card mb-3">
-                                            <div class="card-header">
-                                                Passenger Type: {{ $breakdown['passenger_type'] ?? 'N/A' }} (Quantity:
-                                                {{ $breakdown['quantity'] ?? 'N/A' }})
-                                            </div>
-                                            <div class="card-body">
-                                                @if (!empty($breakdown['per_segment_fares']) && is_array($breakdown['per_segment_fares']))
-                                                    @foreach ($breakdown['per_segment_fares'] as $segmentFare)
-                                                        <div class="card mb-3">
-                                                            <div class="card-header">
-                                                                Route: {{ $segmentFare['from'] ?? 'N/A' }} to
-                                                                {{ $segmentFare['to'] ?? 'N/A' }}
-                                                            </div>
+                        <!-- Itinerary -->
+                        @if (!empty($data['itinerary']) && is_array($data['itinerary']))
+                             <div class="accordion-item">
+                                <h2 class="accordion-header" id="itineraryHeading">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#itinerary" aria-expanded="false" aria-controls="itinerary">
+                                        Itinerary / Segments
+                                    </button>
+                                </h2>
+                                <div id="itinerary" class="accordion-collapse collapse" aria-labelledby="itineraryHeading"
+                                    data-bs-parent="#bookingAccordion">
+                                    <div class="accordion-body">
+                                        @foreach ($data['itinerary'] as $legIndex => $leg)
+                                            <div class="mb-3">
+                                                <h6 class="text-primary">Leg {{ $leg['leg_id'] ?? ($legIndex + 1) }}</h6>
+                                                @if(!empty($leg['segments']))
+                                                    @foreach($leg['segments'] as $segIndex => $seg)
+                                                        <div class="card mb-2">
                                                             <div class="card-body">
-                                                                <ul class="list-group list-group-flush">
-                                                                    <li class="list-group-item"><strong>Fare
-                                                                            Basis:</strong>
-                                                                        {{ $segmentFare['fare_basis'] ?? 'N/A' }}</li>
-                                                                    <li class="list-group-item"><strong>Base
-                                                                            Fare:</strong> PKR
-                                                                        {{ !empty($segmentFare['base_fare']) ? number_format($segmentFare['base_fare'], 2) : '0.00' }}
-                                                                    </li>
-                                                                    <li class="list-group-item"><strong>Taxes
-                                                                            Total:</strong> PKR
-                                                                        {{ !empty($segmentFare['taxes_total']) ? number_format($segmentFare['taxes_total'], 2) : '0.00' }}
-                                                                    </li>
-                                                                    <li class="list-group-item"><strong>Fees
-                                                                            Total:</strong> PKR
-                                                                        {{ !empty($segmentFare['fees_total']) ? number_format($segmentFare['fees_total'], 2) : '0.00' }}
-                                                                    </li>
-                                                                    <li class="list-group-item">
-                                                                        <strong>Baggage:</strong>
-                                                                        {{ !empty($segmentFare['baggage']['quantity']) ? $segmentFare['baggage']['quantity'] . ' ' . ($segmentFare['baggage']['unit'] ?? 'KGS') : 'N/A' }}
-                                                                    </li>
-                                                                </ul>
-                                                                @if (!empty($segmentFare['taxes']) && is_array($segmentFare['taxes']))
-                                                                    <h6 class="mt-3">Tax Breakdown</h6>
-                                                                    <ul class="list-group list-group-flush">
-                                                                        @foreach ($segmentFare['taxes'] as $tax)
-                                                                            <li class="list-group-item">
-                                                                                <strong>{{ $tax['TaxCode'] ?? 'Tax' }}:</strong>
-                                                                                {{ !empty($tax['CurrencyCode']) && !empty($tax['Amount']) ? $tax['CurrencyCode'] . ' ' . number_format($tax['Amount'], 2) : 'N/A' }}
-                                                                            </li>
-                                                                        @endforeach
-                                                                    </ul>
-                                                                @endif
-                                                                @if (!empty($segmentFare['fees']) && is_array($segmentFare['fees']))
-                                                                    <h6 class="mt-3">Fees Breakdown</h6>
-                                                                    <ul class="list-group list-group-flush">
-                                                                        @foreach ($segmentFare['fees'] as $fee)
-                                                                            <li class="list-group-item">
-                                                                                <strong>{{ $fee['FeeCode'] ?? 'Fee' }}:</strong>
-                                                                                {{ !empty($fee['CurrencyCode']) && !empty($fee['Amount']) ? $fee['CurrencyCode'] . ' ' . number_format($fee['Amount'], 2) : 'N/A' }}
-                                                                            </li>
-                                                                        @endforeach
-                                                                    </ul>
-                                                                @endif
+                                                                <div class="row">
+                                                                    <div class="col-md-3">
+                                                                        <strong>{{ $seg['operating_airline'] ?? 'XX' }} {{ $seg['flight_number'] ?? '' }}</strong><br>
+                                                                        <small class="text-muted">{{ $seg['aircraft'] ?? '' }} ({{ $seg['cabin'] ?? '' }})</small>
+                                                                    </div>
+                                                                    <div class="col-md-4">
+                                                                        <strong>{{ $seg['from'] ?? '' }}</strong> <i class="fas fa-arrow-right"></i> <strong>{{ $seg['to'] ?? '' }}</strong><br>
+                                                                        <small>{{ \Carbon\Carbon::parse($seg['departure'])->format('d M Y H:i') }} - {{ \Carbon\Carbon::parse($seg['arrival'])->format('d M Y H:i') }}</small>
+                                                                    </div>
+                                                                    <div class="col-md-3">
+                                                                         Status: {{ $seg['status'] ?? 'N/A' }}<br>
+                                                                         Class: {{ $seg['booking_class'] ?? '' }}
+                                                                    </div>
+                                                                    <div class="col-md-2">
+                                                                         RPH: {{ $seg['rph'] ?? '' }}
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     @endforeach
                                                 @endif
                                             </div>
-                                        </div>
-                                    @endforeach
-                                    <div class="card mt-3">
-                                        <div class="card-header">
-                                            <strong>Total Amount</strong>
-                                        </div>
-                                        <div class="card-body">
-                                            <ul class="list-group list-group-flush">
-                                                <li class="list-group-item"><strong>Total:</strong>
-                                                    {{ !empty($data['total']['amount']) && !empty($data['total']['currency']) ? $data['total']['currency'] . ' ' . number_format($data['total']['amount'], 2) : 'N/A' }}
-                                                </li>
-                                            </ul>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- Fare Breakdown -->
+                        @if (!empty($data['fare_breakdown']) && is_array($data['fare_breakdown']))
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="fareBreakdownHeading">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#fareBreakdown" aria-expanded="false" aria-controls="fareBreakdown">
+                                        Fare Breakdown
+                                    </button>
+                                </h2>
+                                <div id="fareBreakdown" class="accordion-collapse collapse" aria-labelledby="fareBreakdownHeading"
+                                    data-bs-parent="#bookingAccordion">
+                                    <div class="accordion-body">
+                                        <table class="table table-bordered table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>Type</th>
+                                                    <th>Qty</th>
+                                                    <th>Base</th>
+                                                    <th>Taxes</th>
+                                                    <th>Fees</th>
+                                                    <th>Total/Pax</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach ($data['fare_breakdown'] as $fare)
+                                                    <tr>
+                                                        <td>{{ $fare['type'] ?? 'ADT' }}</td>
+                                                        <td>{{ $fare['quantity'] ?? 1 }}</td>
+                                                        <td>{{ number_format($fare['base'] ?? 0) }} {{ $fare['currency'] ?? '' }}</td>
+                                                        <td>{{ number_format($fare['taxes'] ?? 0) }}</td>
+                                                        <td>{{ number_format($fare['fees'] ?? 0) }}</td>
+                                                        <td>{{ number_format($fare['total_per_pax'] ?? 0) }}</td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                    </div>
+
+                @else
+                    {{-- OLD STRUCTURE VIEW (Existing Code) --}}
+                    @php
+                        $bookingInfo = $data['booking'] ?? [];
+                        $flights = $data['flights'] ?? [];
+                        $travelers = $data['travelers'] ?? [];
+                        $seats = $data['seats'] ?? [];
+                        $ancillaries = $data['ancillaries'] ?? [];
+                        $priceBreakdown = $data['price_breakdown'] ?? [];
+                        $raw = $data['raw'] ?? [];
+                    @endphp
+                    <div class="accordion" id="bookingAccordion">
+                        <!-- General Booking Information -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="generalInfoHeading">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#generalInfo" aria-expanded="true" aria-controls="generalInfo">
+                                    General Booking Information Airblue
+                                </button>
+                            </h2>
+                            <div id="generalInfo" class="accordion-collapse collapse show"
+                                aria-labelledby="generalInfoHeading" data-bs-parent="#bookingAccordion">
+                                <div class="accordion-body">
+                                    <ul class="list-group list-group-flush">
+                                        <li class="list-group-item"><strong>ID:</strong>
+                                            {{ $bookingRequest->id ?? 'N/A' }}</li>
+                                        <li class="list-group-item"><strong>Airline:</strong>
+                                            {{ $bookingRequest->airline ?? 'N/A' }}</li>
+                                        <li class="list-group-item"><strong>PNR:</strong>
+                                            {{ $bookingInfo['pnr'] ?? 'N/A' }}</li>
+                                        <li class="list-group-item"><strong>Instance:</strong>
+                                            {{ $bookingInfo['instance'] ?? 'N/A' }}</li>
+                                        <li class="list-group-item"><strong>Ticket Time Limit:</strong>
+                                            {{ !empty($data['ticket_time_limit']) ? \Carbon\Carbon::parse($data['ticket_time_limit'])->format('d M Y, H:i') : 'N/A' }}
+                                        </li>
+                                        <li class="list-group-item"><strong>Status:</strong>
+                                            {{ !empty($data['success']) ? ($data['success'] === 'true' ? 'Success' : 'Failed') : 'N/A' }}
+                                        </li>
+                                        <li class="list-group-item"><strong>Total Amount:</strong>
+                                            {{ !empty($data['total']['amount']) && !empty($data['total']['currency']) ? $data['total']['currency'] . ' ' . number_format($data['total']['amount'], 2) : 'N/A' }}
+                                        </li>
+                                        <li class="list-group-item"><strong>Client ID:</strong>
+                                            {{ $bookingRequest->client_id ?? 'N/A' }}</li>
+                                        <li class="list-group-item"><strong>Booking ID:</strong>
+                                            {{ $bookingRequest->booking_id ?? 'N/A' }}</li>
+                                        <li class="list-group-item"><strong>Created At:</strong>
+                                            {{ !empty($bookingRequest->created_at) ? \Carbon\Carbon::parse($bookingRequest->created_at)->format('d M Y, H:i') : 'N/A' }}
+                                        </li>
+                                        <li class="list-group-item"><strong>Updated At:</strong>
+                                            {{ !empty($bookingRequest->updated_at) ? \Carbon\Carbon::parse($bookingRequest->updated_at)->format('d M Y, H:i') : 'N/A' }}
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- User Information -->
+                        @if (!empty($xmlBody['user']) && is_array($xmlBody['user']))
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="userInfoHeading">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#userInfo" aria-expanded="false" aria-controls="userInfo">
+                                        User Information
+                                    </button>
+                                </h2>
+                                <div id="userInfo" class="accordion-collapse collapse" aria-labelledby="userInfoHeading"
+                                    data-bs-parent="#bookingAccordion">
+                                    <div class="accordion-body">
+                                        <ul class="list-group list-group-flush">
+                                            <li class="list-group-item"><strong>Full Name:</strong>
+                                                {{ $xmlBody['user']['userFullName'] ?? 'N/A' }}</li>
+                                            <li class="list-group-item"><strong>Email:</strong>
+                                                {{ $xmlBody['user']['userEmail'] ?? 'N/A' }}</li>
+                                            <li class="list-group-item"><strong>Phone:</strong>
+                                                {{ !empty($xmlBody['user']['userPhoneCode']) ? '+' . $xmlBody['user']['userPhoneCode'] . ' ' : '' }}{{ $xmlBody['user']['userPhone'] ?? 'N/A' }}
+                                            </li>
+                                            <li class="list-group-item"><strong>City:</strong>
+                                                {{ $xmlBody['user']['city'] ?? 'N/A' }}</li>
+                                            <li class="list-group-item"><strong>Country:</strong>
+                                                {{ $xmlBody['user']['country'] ?? 'N/A' }}</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- Passenger Information -->
+                        @if (!empty($xmlBody['passengers']) && is_array($xmlBody['passengers']))
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="passengerInfoHeading">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#passengerInfo" aria-expanded="false"
+                                        aria-controls="passengerInfo">
+                                        Passenger Information
+                                    </button>
+                                </h2>
+                                <div id="passengerInfo" class="accordion-collapse collapse"
+                                    aria-labelledby="passengerInfoHeading" data-bs-parent="#bookingAccordion">
+                                    <div class="accordion-body">
+                                        @foreach ($xmlBody['passengers'] as $index => $passenger)
+                                            <div class="card mb-3">
+                                                <div class="card-header">
+                                                    Passenger {{ $index + 1 }} ({{ $passenger['type'] ?? 'N/A' }})
+                                                </div>
+                                                <div class="card-body">
+                                                    <ul class="list-group list-group-flush">
+                                                        <li class="list-group-item"><strong>Name:</strong>
+                                                            {{ !empty($passenger['title']) ? $passenger['title'] . ' ' : '' }}{{ $passenger['name'] ?? '' }}
+                                                            {{ $passenger['surname'] ?? '' }}</li>
+                                                        <li class="list-group-item"><strong>Date of Birth:</strong>
+                                                            {{ !empty($passenger['dob']) ? \Carbon\Carbon::parse($passenger['dob'])->format('d M Y') : 'N/A' }}
+                                                        </li>
+                                                        <li class="list-group-item"><strong>Nationality:</strong>
+                                                            {{ $passenger['nationality'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Passport Number:</strong>
+                                                            {{ $passenger['passportNumber'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Passport Expiry:</strong>
+                                                            {{ !empty($passenger['passportExpiry']) ? \Carbon\Carbon::parse($passenger['passportExpiry'])->format('d M Y') : 'N/A' }}
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- Travelers Information -->
+                        @if (!empty($travelers) && is_array($travelers))
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="travelersInfoHeading">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#travelersInfo" aria-expanded="false"
+                                        aria-controls="travelersInfo">
+                                        Travelers Information
+                                    </button>
+                                </h2>
+                                <div id="travelersInfo" class="accordion-collapse collapse"
+                                    aria-labelledby="travelersInfoHeading" data-bs-parent="#bookingAccordion">
+                                    <div class="accordion-body">
+                                        @foreach ($travelers as $traveler)
+                                            <div class="card mb-3">
+                                                <div class="card-header">
+                                                    Traveler {{ $traveler['rph'] ?? 'N/A' }}
+                                                    ({{ $traveler['type'] ?? 'N/A' }})
+                                                </div>
+                                                <div class="card-body">
+                                                    <ul class="list-group list-group-flush">
+                                                        <li class="list-group-item"><strong>Full Name:</strong>
+                                                            {{ $traveler['full_name'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>First Name:</strong>
+                                                            {{ $traveler['first_name'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Last Name:</strong>
+                                                            {{ $traveler['last_name'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Title:</strong>
+                                                            {{ $traveler['title'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Birth Date:</strong>
+                                                            {{ !empty($traveler['birth_date']) ? \Carbon\Carbon::parse($traveler['birth_date'])->format('d M Y') : 'N/A' }}
+                                                        </li>
+                                                        <li class="list-group-item"><strong>Phone:</strong>
+                                                            {{ $traveler['phone'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Email:</strong>
+                                                            {{ $traveler['email'] ?? 'N/A' }}</li>
+                                                        @if (!empty($traveler['document']))
+                                                            <li class="list-group-item"><strong>Document ID:</strong>
+                                                                {{ $traveler['document']['id'] ?? 'N/A' }}</li>
+                                                            <li class="list-group-item"><strong>Document Type:</strong>
+                                                                {{ $traveler['document']['type'] ?? 'N/A' }}</li>
+                                                            <li class="list-group-item"><strong>Issue Country:</strong>
+                                                                {{ $traveler['document']['issue_country'] ?? 'N/A' }}</li>
+                                                            <li class="list-group-item"><strong>Nationality:</strong>
+                                                                {{ $traveler['document']['nationality'] ?? 'N/A' }}</li>
+                                                            <li class="list-group-item"><strong>Expire Date:</strong>
+                                                                {{ !empty($traveler['document']['expire_date']) ? \Carbon\Carbon::parse($traveler['document']['expire_date'])->format('d M Y') : 'N/A' }}
+                                                            </li>
+                                                        @endif
+                                                        @if (!empty($traveler['segments']))
+                                                            <li class="list-group-item">
+                                                                <strong>Flight Segments:</strong>
+                                                                {{ is_array($traveler['segments'])
+                                                                    ? implode(', ', $traveler['segments'])
+                                                                    : $traveler['segments'] }}
+                                                            </li>
+                                                        @endif
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- Flight Segments -->
+                        @if (!empty($flights) && is_array($flights))
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="segmentsHeading">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#segments" aria-expanded="false" aria-controls="segments">
+                                        Flight Segments
+                                    </button>
+                                </h2>
+                                <div id="segments" class="accordion-collapse collapse" aria-labelledby="segmentsHeading"
+                                    data-bs-parent="#bookingAccordion">
+                                    <div class="accordion-body">
+                                        @foreach ($flights as $flight)
+                                            <div class="card mb-3">
+                                                <div class="card-header">
+                                                    Segment {{ $flight['rph'] ?? 'N/A' }}:
+                                                    {{ $flight['departure_airport'] ?? 'N/A' }} to
+                                                    {{ $flight['arrival_airport'] ?? 'N/A' }}
+                                                </div>
+                                                <div class="card-body">
+                                                    <h6>Flight Details</h6>
+                                                    <ul class="list-group list-group-flush">
+                                                        <li class="list-group-item"><strong>Flight Number:</strong>
+                                                            {{ $flight['flight_number'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Departure:</strong>
+                                                            {{ $flight['departure_airport'] ?? 'N/A' }}{{ !empty($flight['departure_terminal']) ? ' (Terminal ' . $flight['departure_terminal'] . ')' : '' }}
+                                                            on
+                                                            {{ !empty($flight['departure_datetime']) ? \Carbon\Carbon::parse($flight['departure_datetime'])->format('d M Y, H:i') : 'N/A' }}
+                                                        </li>
+                                                        <li class="list-group-item"><strong>Arrival:</strong>
+                                                            {{ $flight['arrival_airport'] ?? 'N/A' }}{{ !empty($flight['arrival_terminal']) ? ' (Terminal ' . $flight['arrival_terminal'] . ')' : '' }}
+                                                            on
+                                                            {{ !empty($flight['arrival_datetime']) ? \Carbon\Carbon::parse($flight['arrival_datetime'])->format('d M Y, H:i') : 'N/A' }}
+                                                        </li>
+                                                        <li class="list-group-item"><strong>Duration:</strong>
+                                                            {{ !empty($flight['departure_datetime']) && !empty($flight['arrival_datetime']) ? \Carbon\Carbon::parse($flight['departure_datetime'])->diffInMinutes(\Carbon\Carbon::parse($flight['arrival_datetime'])) . ' minutes' : 'N/A' }}
+                                                        </li>
+                                                        <li class="list-group-item"><strong>Operating Airline:</strong>
+                                                            {{ $flight['operating_airline'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Marketing Airline:</strong>
+                                                            {{ $flight['marketing_airline'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Aircraft:</strong>
+                                                            {{ $flight['equipment'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Cabin Class:</strong>
+                                                            {{ $flight['cabin'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Fare Type:</strong>
+                                                            {{ $flight['fare_type'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Status:</strong>
+                                                            {{ $flight['status'] ?? 'N/A' }}</li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- Seats Information -->
+                        @if (!empty($seats) && is_array($seats))
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="seatsInfoHeading">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#seatsInfo" aria-expanded="false" aria-controls="seatsInfo">
+                                        Seat Selections
+                                    </button>
+                                </h2>
+                                <div id="seatsInfo" class="accordion-collapse collapse"
+                                    aria-labelledby="seatsInfoHeading" data-bs-parent="#bookingAccordion">
+                                    <div class="accordion-body">
+                                        @foreach ($seats as $seat)
+                                            <div class="card mb-3">
+                                                <div class="card-header">
+                                                    Seat:
+                                                    {{ $seat['row_number'] ?? 'N/A' }}{{ $seat['seat_number'] ?? 'N/A' }}
+                                                    (Flight RPH: {{ $seat['flight_rph'] ?? 'N/A' }})
+                                                </div>
+                                                <div class="card-body">
+                                                    <ul class="list-group list-group-flush">
+                                                        <li class="list-group-item"><strong>Traveler RPH:</strong>
+                                                            {{ $seat['traveler_rph'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Seat:</strong> Row
+                                                            {{ $seat['row_number'] ?? 'N/A' }}, Seat
+                                                            {{ $seat['seat_number'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Status:</strong>
+                                                            {{ $seat['status'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Price:</strong>
+                                                            {{ !empty($seat['price']) && !empty($seat['currency']) ? $seat['currency'] . ' ' . number_format($seat['price'], 2) : 'Free' }}
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- Ancillaries (Add-ons) -->
+                        @if (!empty($ancillaries) && is_array($ancillaries))
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="ancillariesInfoHeading">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#ancillariesInfo" aria-expanded="false"
+                                        aria-controls="ancillariesInfo">
+                                        Ancillaries (Add-ons)
+                                    </button>
+                                </h2>
+                                <div id="ancillariesInfo" class="accordion-collapse collapse"
+                                    aria-labelledby="ancillariesInfoHeading" data-bs-parent="#bookingAccordion">
+                                    <div class="accordion-body">
+                                        @foreach ($ancillaries as $ancillary)
+                                            <div class="card mb-3">
+                                                <div class="card-header">
+                                                    {{ $ancillary['title'] ?? 'N/A' }} (Flight RPH:
+                                                    {{ $ancillary['flight_rph'] ?? 'N/A' }})
+                                                </div>
+                                                <div class="card-body">
+                                                    <ul class="list-group list-group-flush">
+                                                        <li class="list-group-item"><strong>SSR Code:</strong>
+                                                            {{ $ancillary['ssr_code'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Item Code:</strong>
+                                                            {{ $ancillary['item_code'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Title:</strong>
+                                                            {{ $ancillary['title'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Description:</strong>
+                                                            {{ $ancillary['description'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Traveler RPH:</strong>
+                                                            {{ $ancillary['traveler_rph'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Price:</strong>
+                                                            {{ !empty($ancillary['price']) && !empty($ancillary['currency']) ? $ancillary['currency'] . ' ' . number_format($ancillary['price'], 2) : 'Free' }}
+                                                        </li>
+                                                        <li class="list-group-item"><strong>Status:</strong>
+                                                            {{ $ancillary['status'] ?? 'N/A' }}</li>
+                                                        <li class="list-group-item"><strong>Refundable:</strong>
+                                                            {{ !empty($ancillary['refundable']) ? ($ancillary['refundable'] === 'true' ? 'Yes' : 'No') : 'N/A' }}
+                                                        </li>
+                                                        <li class="list-group-item"><strong>Expires:</strong>
+                                                            {{ !empty($ancillary['expires']) ? \Carbon\Carbon::parse($ancillary['expires'])->format('d M Y, H:i') : 'N/A' }}
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- Pricing Information -->
+                        @if (!empty($priceBreakdown) && is_array($priceBreakdown))
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="pricingInfoHeading">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#pricingInfo" aria-expanded="false" aria-controls="pricingInfo">
+                                        Pricing Information
+                                    </button>
+                                </h2>
+                                <div id="pricingInfo" class="accordion-collapse collapse"
+                                    aria-labelledby="pricingInfoHeading" data-bs-parent="#bookingAccordion">
+                                    <div class="accordion-body">
+                                        @foreach ($priceBreakdown as $breakdown)
+                                            <div class="card mb-3">
+                                                <div class="card-header">
+                                                    Passenger Type: {{ $breakdown['passenger_type'] ?? 'N/A' }} (Quantity:
+                                                    {{ $breakdown['quantity'] ?? 'N/A' }})
+                                                </div>
+                                                <div class="card-body">
+                                                    @if (!empty($breakdown['per_segment_fares']) && is_array($breakdown['per_segment_fares']))
+                                                        @foreach ($breakdown['per_segment_fares'] as $segmentFare)
+                                                            <div class="card mb-3">
+                                                                <div class="card-header">
+                                                                    Route: {{ $segmentFare['from'] ?? 'N/A' }} to
+                                                                    {{ $segmentFare['to'] ?? 'N/A' }}
+                                                                </div>
+                                                                <div class="card-body">
+                                                                    <ul class="list-group list-group-flush">
+                                                                        <li class="list-group-item"><strong>Fare
+                                                                                Basis:</strong>
+                                                                            {{ $segmentFare['fare_basis'] ?? 'N/A' }}</li>
+                                                                        <li class="list-group-item"><strong>Base
+                                                                                Fare:</strong> PKR
+                                                                            {{ !empty($segmentFare['base_fare']) ? number_format($segmentFare['base_fare'], 2) : '0.00' }}
+                                                                        </li>
+                                                                        <li class="list-group-item"><strong>Taxes
+                                                                                Total:</strong> PKR
+                                                                            {{ !empty($segmentFare['taxes_total']) ? number_format($segmentFare['taxes_total'], 2) : '0.00' }}
+                                                                        </li>
+                                                                        <li class="list-group-item"><strong>Fees
+                                                                                Total:</strong> PKR
+                                                                            {{ !empty($segmentFare['fees_total']) ? number_format($segmentFare['fees_total'], 2) : '0.00' }}
+                                                                        </li>
+                                                                        <li class="list-group-item">
+                                                                            <strong>Baggage:</strong>
+                                                                            {{ !empty($segmentFare['baggage']['quantity']) ? $segmentFare['baggage']['quantity'] . ' ' . ($segmentFare['baggage']['unit'] ?? 'KGS') : 'N/A' }}
+                                                                        </li>
+                                                                    </ul>
+                                                                    @if (!empty($segmentFare['taxes']) && is_array($segmentFare['taxes']))
+                                                                        <h6 class="mt-3">Tax Breakdown</h6>
+                                                                        <ul class="list-group list-group-flush">
+                                                                            @foreach ($segmentFare['taxes'] as $tax)
+                                                                                <li class="list-group-item">
+                                                                                    <strong>{{ $tax['TaxCode'] ?? 'Tax' }}:</strong>
+                                                                                    {{ !empty($tax['CurrencyCode']) && !empty($tax['Amount']) ? $tax['CurrencyCode'] . ' ' . number_format($tax['Amount'], 2) : 'N/A' }}
+                                                                                </li>
+                                                                            @endforeach
+                                                                        </ul>
+                                                                    @endif
+                                                                    @if (!empty($segmentFare['fees']) && is_array($segmentFare['fees']))
+                                                                        <h6 class="mt-3">Fees Breakdown</h6>
+                                                                        <ul class="list-group list-group-flush">
+                                                                            @foreach ($segmentFare['fees'] as $fee)
+                                                                                <li class="list-group-item">
+                                                                                    <strong>{{ $fee['FeeCode'] ?? 'Fee' }}:</strong>
+                                                                                    {{ !empty($fee['CurrencyCode']) && !empty($fee['Amount']) ? $fee['CurrencyCode'] . ' ' . number_format($fee['Amount'], 2) : 'N/A' }}
+                                                                                </li>
+                                                                            @endforeach
+                                                                        </ul>
+                                                                    @endif
+                                                                </div>
+                                                            </div>
+                                                        @endforeach
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                        <div class="card mt-3">
+                                            <div class="card-header">
+                                                <strong>Total Amount</strong>
+                                            </div>
+                                            <div class="card-body">
+                                                <ul class="list-group list-group-flush">
+                                                    <li class="list-group-item"><strong>Total:</strong>
+                                                        {{ !empty($data['total']['amount']) && !empty($data['total']['currency']) ? $data['total']['currency'] . ' ' . number_format($data['total']['amount'], 2) : 'N/A' }}
+                                                    </li>
+                                                </ul>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    @endif
+                        @endif
 
-                    <!-- Penalties -->
-                    @if (
-                        !empty($raw['PriceInfo']['PTC_FareBreakdowns']['PTC_FareBreakdown']) &&
-                            is_array($raw['PriceInfo']['PTC_FareBreakdowns']['PTC_FareBreakdown']))
-                        @php
-                            $fareBreakdowns =
-                                is_array($raw['PriceInfo']['PTC_FareBreakdowns']['PTC_FareBreakdown']) &&
-                                isset($raw['PriceInfo']['PTC_FareBreakdowns']['PTC_FareBreakdown'][0])
-                                    ? $raw['PriceInfo']['PTC_FareBreakdowns']['PTC_FareBreakdown']
-                                    : [$raw['PriceInfo']['PTC_FareBreakdowns']['PTC_FareBreakdown']];
-                            $hasPenalties = false;
-                            foreach ($fareBreakdowns as $fare) {
-                                if (!empty($fare['FareInfo']) && is_array($fare['FareInfo'])) {
-                                    $fareInfos =
-                                        is_array($fare['FareInfo']) && isset($fare['FareInfo'][0])
-                                            ? $fare['FareInfo']
-                                            : [$fare['FareInfo']];
-                                    foreach ($fareInfos as $fareInfo) {
-                                        if (!empty($fareInfo['RuleInfo']['ChargesRules'])) {
-                                            $hasPenalties = true;
-                                            break 2;
+                        <!-- Penalties -->
+                        @if (
+                            !empty($raw['PriceInfo']['PTC_FareBreakdowns']['PTC_FareBreakdown']) &&
+                                is_array($raw['PriceInfo']['PTC_FareBreakdowns']['PTC_FareBreakdown']))
+                            @php
+                                $fareBreakdowns =
+                                    is_array($raw['PriceInfo']['PTC_FareBreakdowns']['PTC_FareBreakdown']) &&
+                                    isset($raw['PriceInfo']['PTC_FareBreakdowns']['PTC_FareBreakdown'][0])
+                                        ? $raw['PriceInfo']['PTC_FareBreakdowns']['PTC_FareBreakdown']
+                                        : [$raw['PriceInfo']['PTC_FareBreakdowns']['PTC_FareBreakdown']];
+                                $hasPenalties = false;
+                                foreach ($fareBreakdowns as $fare) {
+                                    if (!empty($fare['FareInfo']) && is_array($fare['FareInfo'])) {
+                                        $fareInfos =
+                                            is_array($fare['FareInfo']) && isset($fare['FareInfo'][0])
+                                                ? $fare['FareInfo']
+                                                : [$fare['FareInfo']];
+                                        foreach ($fareInfos as $fareInfo) {
+                                            if (!empty($fareInfo['RuleInfo']['ChargesRules'])) {
+                                                $hasPenalties = true;
+                                                break 2;
+                                            }
                                         }
                                     }
                                 }
-                            }
-                        @endphp
+                            @endphp
+                        @endif
                         @if ($hasPenalties)
                             <div class="accordion-item">
                                 <h2 class="accordion-header" id="penaltiesHeading">
@@ -1746,10 +1929,7 @@
                                         @foreach ($fareBreakdowns as $fare)
                                             @if (!empty($fare['FareInfo']) && is_array($fare['FareInfo']))
                                                 @php
-                                                    $fareInfos =
-                                                        is_array($fare['FareInfo']) && isset($fare['FareInfo'][0])
-                                                            ? $fare['FareInfo']
-                                                            : [$fare['FareInfo']];
+                                                    $fareInfos = is_array($fare['FareInfo']) && isset($fare['FareInfo'][0]) ? $fare['FareInfo'] : [$fare['FareInfo']];
                                                 @endphp
                                                 @foreach ($fareInfos as $fareInfo)
                                                     @if (!empty($fareInfo['RuleInfo']['ChargesRules']))
@@ -1765,27 +1945,9 @@
                                                                     <h6>Change Fees</h6>
                                                                     <ul class="list-group list-group-flush">
                                                                         @php
-                                                                            $changePenalties =
-                                                                                is_array(
-                                                                                    $fareInfo['RuleInfo'][
-                                                                                        'ChargesRules'
-                                                                                    ]['VoluntaryChanges']['Penalty'],
-                                                                                ) &&
-                                                                                isset(
-                                                                                    $fareInfo['RuleInfo'][
-                                                                                        'ChargesRules'
-                                                                                    ]['VoluntaryChanges']['Penalty'][0],
-                                                                                )
-                                                                                    ? $fareInfo['RuleInfo'][
-                                                                                        'ChargesRules'
-                                                                                    ]['VoluntaryChanges']['Penalty']
-                                                                                    : [
-                                                                                        $fareInfo['RuleInfo'][
-                                                                                            'ChargesRules'
-                                                                                        ]['VoluntaryChanges'][
-                                                                                            'Penalty'
-                                                                                        ],
-                                                                                    ];
+                                                                            $changePenalties = is_array($fareInfo['RuleInfo']['ChargesRules']['VoluntaryChanges']['Penalty']) && isset($fareInfo['RuleInfo']['ChargesRules']['VoluntaryChanges']['Penalty'][0])
+                                                                                ? $fareInfo['RuleInfo']['ChargesRules']['VoluntaryChanges']['Penalty']
+                                                                                : [$fareInfo['RuleInfo']['ChargesRules']['VoluntaryChanges']['Penalty']];
                                                                         @endphp
                                                                         @foreach ($changePenalties as $penalty)
                                                                             <li class="list-group-item">
@@ -1799,27 +1961,9 @@
                                                                     <h6 class="mt-3">Cancellation / Refund Fees</h6>
                                                                     <ul class="list-group list-group-flush">
                                                                         @php
-                                                                            $refundPenalties =
-                                                                                is_array(
-                                                                                    $fareInfo['RuleInfo'][
-                                                                                        'ChargesRules'
-                                                                                    ]['VoluntaryRefunds']['Penalty'],
-                                                                                ) &&
-                                                                                isset(
-                                                                                    $fareInfo['RuleInfo'][
-                                                                                        'ChargesRules'
-                                                                                    ]['VoluntaryRefunds']['Penalty'][0],
-                                                                                )
-                                                                                    ? $fareInfo['RuleInfo'][
-                                                                                        'ChargesRules'
-                                                                                    ]['VoluntaryRefunds']['Penalty']
-                                                                                    : [
-                                                                                        $fareInfo['RuleInfo'][
-                                                                                            'ChargesRules'
-                                                                                        ]['VoluntaryRefunds'][
-                                                                                            'Penalty'
-                                                                                        ],
-                                                                                    ];
+                                                                            $refundPenalties = is_array($fareInfo['RuleInfo']['ChargesRules']['VoluntaryRefunds']['Penalty']) && isset($fareInfo['RuleInfo']['ChargesRules']['VoluntaryRefunds']['Penalty'][0])
+                                                                                ? $fareInfo['RuleInfo']['ChargesRules']['VoluntaryRefunds']['Penalty']
+                                                                                : [$fareInfo['RuleInfo']['ChargesRules']['VoluntaryRefunds']['Penalty']];
                                                                         @endphp
                                                                         @foreach ($refundPenalties as $penalty)
                                                                             <li class="list-group-item">
@@ -1839,8 +1983,8 @@
                                 </div>
                             </div>
                         @endif
-                    @endif
-                </div>
+                    </div>
+                @endif
             @else
                 <div class="alert alert-warning">No booking request data available for Airblue.</div>
             @endif

@@ -747,6 +747,42 @@ class FlightController extends Controller
                     'price_code' => $updatedBooking->price_code,
                 ]
             ]);
+        } else if($airline === 'airblue') {
+            $orderRetrieve = $this->airblueService->doTicketPreview(['orderId' => $booking->order_id]);
+            // dd($orderRetrieve);
+            if (!empty($orderRetrieve['error']) && !empty($orderRetrieve['warnings'])) {
+                return response()->json(['status'  => 'error', 'message' => $orderRetrieve['message'], 'details' => $orderRetrieve['error'] ?? null], 400);
+            }
+            $skipComparison = $orderRetrieve['total_fare']['amount'] <= 0;
+
+            if ($skipComparison) {
+                return response()->json([
+                    'status'   => 'error',
+                    'message'  => 'Fetched latest order details. Could not find a valid total price in the response.',
+                    'note'     => 'Price comparison skipped due to missing/invalid amounts in GetReservationbyPNR response.',
+                    'data'     => $orderRetrieve,
+                ], 400);
+            }
+            $comparison = $this->generatePriceComparisonFJ(
+                (float) $booking->price,
+                $booking->price_code,
+                (float) $orderRetrieve['total_fare']['amount'],
+                $orderRetrieve['total_fare']['code']
+            );
+            $updatedBooking = app(FlightBookingService::class)->updateBookingFieldsAirblue($orderRetrieve, $booking->id);
+            return response()->json([
+                'status'      => 'success',
+                'message'     => 'Fetched latest order details.',
+                'comparison'  => $comparison,
+                'booking_old' => [
+                    'price'      => (float) $booking->price,
+                    'price_code' => $booking->price_code,
+                ],
+                'booking_new' => [
+                    'price'      => (float) $updatedBooking->price,
+                    'price_code' => $updatedBooking->price_code,
+                ]
+            ]);
         }
         return response()->json(['status' => 'error', 'message' => 'Airline Missing!.'], 401);
     }
@@ -1037,6 +1073,48 @@ class FlightController extends Controller
                     'status' => 'error',
                     'message' => 'Order already cancelled',
                     'details' => $orderCancel['warnings']['details'] ?? 'Cannot perform cancel - Order already cancelled',
+                ], 400);
+            }
+            $booking->update(['status' => Booking::STATUS_CANCEL]);
+            $booking->tickets()->update(['status' => 'cancel']);
+            CancelResponse::create([
+                'xml_body' => json_encode($orderCancel),
+                'booking_id' => $booking->id
+            ]);
+            BookingLog::create([
+                'booking_id' => $booking->id,
+                'notes' => "Cancel Order on {$now}",
+            ]);
+            return response()->json(['status' => 'success', 'message' => 'Success! Flight cancelled successfully!.', 'data' => $orderCancel]);
+        } elseif ($airline === 'airblue') {
+            $data = [
+                'orderId' => $booking->order_id ?? null,
+            ];
+            $orderCancel = $this->airblueService->orderCancel($data ?? []);
+            if (!empty($orderCancel['warnings'])) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Order already cancelled',
+                    'details' => 'Cannot perform cancel - Order already cancelled',
+                ], 400);
+            }
+            if (!empty($orderCancel['error'])) {
+                BookingLog::create([
+                    'booking_id' => $booking->id,
+                    'notes' => "Error Cancel Order on {$now}",
+                ]);
+                $booking->update(['status' => Booking::STATUS_ERROR]);
+                ErrorLog::create([
+                    'client_id' => $booking->client_id,
+                    'booking_id' => $booking->id,
+                    'error_type' => 'cancellation',
+                    'error_message' => 'Error Cancel Order',
+                    'details' => json_encode($orderCancel),
+                ]);
+                return response()->json([
+                    'status' => 'error',
+                    'message' => $orderCancel['error'] ?? 'Error Cancel Order',
+                    'details' => $orderCancel['details'] ?? '',
                 ], 400);
             }
             $booking->update(['status' => Booking::STATUS_CANCEL]);

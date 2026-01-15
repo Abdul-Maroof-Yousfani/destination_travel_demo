@@ -286,6 +286,69 @@
                                     @empty
                                         <p class="text-muted mb-0">No booking items found.</p>
                                     @endforelse
+                                @elseif ($airline === 'airblue')
+                                    @forelse ($booking->bookingItems as $item)
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <span class="fw-semibold">Passenger(s): {{ $item->passenger_code }}</span>
+                                        </div>
+                                        @forelse ($item->penalties as $penalty)
+                                            @php
+                                                $cancel = is_array($penalty->cancel_fee) ? $penalty->cancel_fee : json_decode($penalty->cancel_fee, true);
+                                                $change = is_array($penalty->change_fee) ? $penalty->change_fee : json_decode($penalty->change_fee, true);
+                                                $refund = is_array($penalty->refund_fee) ? $penalty->refund_fee : json_decode($penalty->refund_fee, true);
+                                            @endphp
+                                            <div class="p-3 border-bottom">
+                                                @if (!empty($penalty->destination) || !empty($penalty->arrival))
+                                                    <h6 class="mb-3 text-muted">
+                                                        {{ $penalty->destination }} → {{ $penalty->arrival }}
+                                                    </h6>
+                                                @endif
+
+                                                @php
+                                                    $sections = [
+                                                        'Cancel Fees' => $cancel,
+                                                        'Change Fees' => $change,
+                                                        'Refund Policy / Fees' => $refund
+                                                    ];
+                                                @endphp
+
+                                                @foreach ($sections as $title => $data)
+                                                    @if (!empty($data) && is_array($data))
+                                                        <h6 class="mb-2">{{ $title }}</h6>
+                                                        <table class="table table-sm align-middle mb-3">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th style="width: 40%">Hours Before Dep.</th>
+                                                                    <th style="width: 30%">Amount</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                @foreach ($data as $fee)
+                                                                    @php
+                                                                        $attributes = $fee['@attributes'] ?? [];
+                                                                    @endphp
+                                                                    <tr>
+                                                                        <td>{{ $attributes['HoursBeforeDeparture'] ?? 'N/A' }}</td>
+                                                                        <td>{{ $attributes['CurrencyCode'] ?? '' }} {{ $attributes['Amount'] ?? '' }}</td>
+                                                                    </tr>
+                                                                @endforeach
+                                                            </tbody>
+                                                        </table>
+                                                    @endif
+                                                @endforeach
+
+                                                @if (empty($cancel) && empty($change) && empty($refund))
+                                                    <p class="text-muted mb-0">No penalty info available.</p>
+                                                @endif
+                                            </div>
+                                        @empty
+                                            <div class="p-3">
+                                                <p class="text-muted mb-0">No penalties found for this booking item.</p>
+                                            </div>
+                                        @endforelse
+                                    @empty
+                                        <p class="text-muted mb-0">No booking items found.</p>
+                                    @endforelse
                                 @else
                                     <div class="p-3">
                                         <p class="text-muted mb-0">Unsupported airline for penalty information.</p>
@@ -605,7 +668,7 @@
             </div>
             <div class="row mt-2">
                 <div class="col-md-4 py-2"><strong>Order Total:</strong> {{ $booking->total_price }}</div>
-                <div class="col-md-4 py-2"><strong>Source/Affiliate:</strong> travelandtours Web</div>
+                <div class="col-md-4 py-2"><strong>Source/Affiliate:</strong> EDestinations Web</div>
                 <div class="col-md-4 py-2"><strong>IP of the User:</strong> {{ $booking->client->ip ?? '' }}</div>
             </div>
         </div>
@@ -971,7 +1034,7 @@
                     logs.forEach(log => {
                         html += `
                             <li class="list-group-item">
-                                <strong>${log.user?.email || 'agent@travelandtour.com'}</strong>
+                                <strong>${log.user?.email || 'agent@edestination.com'}</strong>
                                 <span class="text-muted float-end">${new Date(log.created_at).toLocaleString()}</span>
                                 <p class="mb-1">${log.notes}</p>
                                 ${log.image ? `<img src="/storage/${log.image}" alt="note image" class="img-thumbnail" style="max-width: 200px;">` : ''}

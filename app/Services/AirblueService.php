@@ -604,6 +604,68 @@ class AirblueService
         
         return $this->parseAirDemandTicketResponse($raw);
     }
+    public function doTicketPreview(array $data)
+    {
+        $orderId = $data['orderId'] ?? '';;
+
+        $xml = <<<XML
+        <Envelope xmlns="http://schemas.xmlsoap.org/soap/envelope/">
+        <Header/>
+        <Body>
+            <Read xmlns="http://zapways.com/air/ota/3.0">
+            <readRQ Target="{$this->target}" Version="1.04" xmlns="http://www.opentravel.org/OTA/2003/05">
+                <POS>
+                <Source ERSP_UserID="{$this->clientId}/{$this->clientKey}">
+                    <RequestorID Type="{$this->agentType}" ID="{$this->agentId}" MessagePassword="{$this->agentPassword}"/>
+                </Source>
+                </POS>
+                <UniqueID ID="{$orderId}"/>
+            </readRQ>
+            </Read>
+        </Body>
+        </Envelope>
+        XML;
+
+        $raw = $this->sendRequest('Read', $xml);
+        $result = $raw['Body']['ReadResponse']['ReadResult'] ?? null;
+        // dd($result);
+        // dd($this->parseReadResponse($result));
+
+        return $this->parseReadResponse($result);
+    }
+    public function orderCancel(array $data)
+    {
+        $orderId = $data['orderId'] ?? '';;
+        $xml = <<<XML
+        <Envelope xmlns="http://schemas.xmlsoap.org/soap/envelope/">
+        <Header/>
+            <Body>
+                <AirBookModify xmlns="http://zapways.com/air/ota/3.0">
+                    <airBookModifyRQ Target="{$this->target}" Version="1.04" xmlns="http://www.opentravel.org/OTA/2003/05">
+                        <POS>
+                            <Source ERSP_UserID="{$this->clientId}/{$this->clientKey}">
+                                <RequestorID Type="{$this->agentType}" ID="{$this->agentId}" MessagePassword="{$this->agentPassword}" />
+                            </Source>
+                        </POS>
+                        <AirBookModifyRQ ModificationType="1">
+                        </AirBookModifyRQ>
+                        <AirReservation>
+                            <BookingReferenceID ID="{$orderId}"/>
+                        </AirReservation>
+                    </airBookModifyRQ>
+                </AirBookModify>
+            </Body>
+        </Envelope>
+        XML;
+
+        $raw = $this->sendRequest('AirBookModify', $xml);
+        // dd($raw);
+        $result = $raw['Body']['AirBookModifyResponse']['AirBookModifyResult'] ?? null;
+        // dd($result);
+        // dd($this->parseReadResponse($result));
+
+        return $this->parseReadResponse($result);
+    }
 
 
 
@@ -1193,7 +1255,7 @@ class AirblueService
 
         // ---------------- TICKETING TIME LIMIT ----------------
         $ticketingNodes = $this->asArray($reservation['Ticketing'] ?? []);
-        $ticketTimeLimit = $ticketingNodes[0]['@attributes']['TicketTimeLimit'] ?? null;
+        $ticketTimeLimit = $ticketingNodes['@attributes']['TicketTimeLimit'] ?? $ticketingNodes[0]['@attributes']['TicketTimeLimit'] ?? null;
 
         // ---------------- PER-PASSENGER / PER-SEGMENT FARE DETAILS ----------------
         $priceBreakdown = [];
@@ -1381,6 +1443,191 @@ class AirblueService
             'tickets' => $tickets,
             'raw'     => $response,
         ];
+    }
+    protected function parseReadResponse(array $response)
+    {
+        $result = $response;
+
+        if (!$result || !isset($result['Success'])) {
+            return [
+                'success' => false,
+                'warnings'   => 'Already Cancelled',
+                'error'   => 'Invalid or failed Read response',
+                'raw'     => $response
+            ];
+        }
+
+        $airReservation = $result['AirReservation'] ?? [];
+
+        // Booking references
+        $bookingRefs = $airReservation['BookingReferenceID'] ?? [];
+        if (!is_array($bookingRefs) || isset($bookingRefs['@attributes'])) {
+            $bookingRefs = [$bookingRefs];
+        }
+
+        $primaryBooking = null;
+        foreach ($bookingRefs as $ref) {
+            $attrs = $ref['@attributes'] ?? [];
+            if (!isset($attrs['Type'])) {
+                $primaryBooking = $attrs;
+                break;
+            }
+        }
+        if (!$primaryBooking && !empty($bookingRefs)) {
+            $primaryBooking = $bookingRefs[0]['@attributes'] ?? [];
+        }
+
+        $output = [
+            'success'           => true,
+            'booking'           => [
+                'id'       => $primaryBooking['ID']       ?? null,
+                'instance' => $primaryBooking['Instance'] ?? null,
+            ],
+            'ticket_time_limit' => null, // will take the earliest one
+            'status'            => 'OK', // usually all are OK in Read
+            'passengers'        => [],
+            'itinerary'         => [],
+            'total_fare'        => null,
+            'fare_breakdown'    => [], // per passenger type
+        ];
+
+        // ────────────────────────────────────────────────
+        // 1. Total Fare
+        // ────────────────────────────────────────────────
+        $totalNode = $airReservation['PriceInfo']['ItinTotalFare']['TotalFare']['@attributes'] ?? null;
+        if ($totalNode) {
+            $output['total_fare'] = [
+                'amount'   => (float) ($totalNode['Amount'] ?? 0),
+                'code' => $totalNode['CurrencyCode'] ?? 'PKR',
+            ];
+        }
+
+        // ────────────────────────────────────────────────
+        // 2. Itinerary (multiple legs: outbound + return)
+        // ────────────────────────────────────────────────
+        $options = $airReservation['AirItinerary']['OriginDestinationOptions']['OriginDestinationOption'] ?? [];
+        if (!isset($options[0])) $options = $options ? [$options] : [];
+
+        foreach ($options as $optIdx => $option) {
+            $optAttr = $option['@attributes'] ?? [];
+            $leg = [
+                'leg_id'   => $optAttr['RPH'] ?? 'LEG' . ($optIdx + 1),
+                'segments' => [],
+            ];
+
+            $segments = $option['FlightSegment'] ?? [];
+            if (!isset($segments[0])) $segments = $segments ? [$segments] : [];
+
+            foreach ($segments as $seg) {
+                $attr = $seg['@attributes'] ?? [];
+                $leg['segments'][] = [
+                    'rph'              => $attr['RPH']              ?? null,
+                    'flight_number'    => $attr['FlightNumber']     ?? null,
+                    'departure'        => $attr['DepartureDateTime'] ?? null,
+                    'arrival'          => $attr['ArrivalDateTime']   ?? null,
+                    'from'             => $seg['DepartureAirport']['@attributes']['LocationCode'] ?? null,
+                    'to'               => $seg['ArrivalAirport']['@attributes']['LocationCode']   ?? null,
+                    'from_terminal'    => $seg['DepartureAirport']['@attributes']['Terminal']     ?? null,
+                    'to_terminal'      => $seg['ArrivalAirport']['@attributes']['Terminal']       ?? null,
+                    'operating_airline'=> $seg['OperatingAirline']['@attributes']['Code']         ?? null,
+                    'marketing_airline'=> $seg['MarketingAirline']['@attributes']['Code']         ?? null,
+                    'aircraft'         => $seg['Equipment']['@attributes']['AirEquipType']        ?? null,
+                    'cabin'            => $attr['CabinClass']       ?? null,
+                    'booking_class'    => $attr['ResBookDesigCode'] ?? null,
+                    'fare_type'        => $attr['FareType']         ?? null,
+                    'status'           => $attr['Status']           ?? null,
+                    'stops'            => (int) ($attr['StopQuantity'] ?? 0),
+                ];
+            }
+
+            $output['itinerary'][] = $leg;
+        }
+
+        // ────────────────────────────────────────────────
+        // 3. Passengers
+        // ────────────────────────────────────────────────
+        $travelers = $airReservation['TravelerInfo']['AirTraveler'] ?? [];
+        if (!isset($travelers[0])) $travelers = $travelers ? [$travelers] : [];
+
+        $rphToPassenger = []; // map RPH → passenger index for later linking
+
+        foreach ($travelers as $idx => $traveler) {
+            $attr = $traveler['@attributes'] ?? [];
+            $name = $traveler['PersonName'] ?? [];
+
+            $passenger = [
+                'type'       => $attr['PassengerTypeCode'] ?? 'ADT',
+                'birth_date' => $attr['BirthDate']         ?? null,
+                'title'      => $name['NameTitle']         ?? null,
+                'first_name' => $name['GivenName']         ?? null,
+                'last_name'  => $name['Surname']           ?? null,
+                'phone'      => $this->extractPhone($traveler['Telephone'] ?? []),
+                'email'      => $traveler['Email']         ?? null,
+                'document'   => $this->extractDocument($traveler['Document'] ?? []),
+                'rph'        => $traveler['TravelerRefNumber']['@attributes']['RPH'] ?? null,
+                'segments'   => $traveler['FlightSegmentRPHs']['FlightSegmentRPH'] ?? [],
+                'services'   => $this->extractServicesForTraveler($traveler['SpecialReqDetails'] ?? [], $output['itinerary']),
+            ];
+
+            if ($passenger['rph']) {
+                $rphToPassenger[$passenger['rph']] = $idx;
+            }
+
+            $output['passengers'][] = $passenger;
+        }
+
+        // ────────────────────────────────────────────────
+        // 4. Fare breakdown per PTC + collect earliest TTL
+        // ────────────────────────────────────────────────
+        $breakdowns = $airReservation['PriceInfo']['PTC_FareBreakdowns']['PTC_FareBreakdown'] ?? [];
+        if (!isset($breakdowns[0])) $breakdowns = $breakdowns ? [$breakdowns] : [];
+
+        $earliestTTL = null;
+
+        foreach ($breakdowns as $bd) {
+            $ptc = $bd['PassengerTypeQuantity']['@attributes'] ?? [];
+            $type = $ptc['Code'] ?? 'ADT';
+            $qty  = (int) ($ptc['Quantity'] ?? 1);
+
+            $fare = $bd['PassengerFare'] ?? [];
+            $base = $fare['BaseFare']['@attributes'] ?? [];
+            $taxesNode = $fare['Taxes'] ?? [];
+            $feesNode  = $fare['Fees']  ?? [];
+
+            $entry = [
+                'type'     => $type,
+                'quantity' => $qty,
+                'base'     => (float) ($base['Amount'] ?? 0),
+                'taxes'    => (float) ($taxesNode['@attributes']['Amount'] ?? 0),
+                'fees'     => (float) ($feesNode['@attributes']['Amount'] ?? 0),
+                'total_per_pax' => 0, // calculated below
+                'currency' => $base['CurrencyCode'] ?? 'PKR',
+                'baggage_allowance' => $this->extractBaggage($fare['FareBaggageAllowance'] ?? []),
+            ];
+
+            $entry['total_per_pax'] = $entry['base'] + $entry['taxes'] + $entry['fees'];
+            $output['fare_breakdown'][] = $entry;
+
+            $ticketingData = $airReservation['Ticketing'] ?? [];
+
+            if ($ticketingData) {
+                // Normalize to array of ticketing entries
+                $ticketingEntries = $this->asArray($ticketingData);
+
+                foreach ($ticketingEntries as $tick) {
+                    $attrs = $tick['@attributes'] ?? [];
+                    $ttl   = $attrs['TicketTimeLimit'] ?? null;
+
+                    if ($ttl && (!$earliestTTL || $ttl < $earliestTTL)) {
+                        $earliestTTL = $ttl;
+                    }
+                }
+            }
+        }
+
+        $output['ticket_time_limit'] = $earliestTTL;
+
+        return $output;
     }
 
     // ------------------------------------------------------------------ Helper's helper ---------------------------------------------------------------------------------------------------
@@ -1849,6 +2096,91 @@ class AirblueService
         }
 
         return isset($node[0]) ? $node : [$node];
+    }
+
+    // ────────────────────────────────────────────────
+    // Helpers (updated / added)
+    // ────────────────────────────────────────────────
+    private function extractPhone($tel)
+    {
+        $attr = is_array($tel) && isset($tel['@attributes']) ? $tel['@attributes'] : $tel;
+        return !empty($attr['PhoneNumber']) ? $attr : null;
+    }
+
+    private function extractDocument($doc)
+    {
+        $attr = is_array($doc) && isset($doc['@attributes']) ? $doc['@attributes'] : $doc;
+        return !empty($attr['DocID']) ? $attr : null;
+    }
+
+    private function extractBaggage($bag)
+    {
+        $attr = is_array($bag) && isset($bag['@attributes']) ? $bag['@attributes'] : $bag;
+        if (empty($attr)) return null;
+        return [
+            'quantity' => (int) ($attr['UnitOfMeasureQuantity'] ?? 0),
+            'unit'     => $attr['UnitOfMeasure'] ?? 'KGS',
+        ];
+    }
+
+    /**
+     * Extract seats + SSRs — now per traveler (using TravelerRefNumberRPHList)
+     */
+    private function extractServicesForTraveler($specialReqDetails, array $itinerary)
+    {
+        $services = [
+            'seats' => [],
+            'ssr'   => [],
+        ];
+
+        if (empty($specialReqDetails)) return $services;
+
+        $details = is_array($specialReqDetails) && isset($specialReqDetails[0])
+            ? $specialReqDetails
+            : [$specialReqDetails];
+
+        foreach ($details as $block) {
+            // Seats
+            if (isset($block['SeatRequests']['SeatRequest'])) {
+                $seats = $block['SeatRequests']['SeatRequest'];
+                if (!isset($seats[0])) $seats = [$seats];
+
+                foreach ($seats as $s) {
+                    $attr = $s['@attributes'] ?? [];
+                    $services['seats'][] = [
+                        'row'      => $attr['RowNumber'] ?? null,
+                        'seat'     => $attr['SeatNumber'] ?? null,
+                        'status'   => $attr['Status'] ?? null,
+                        'cost'     => (float) ($s['TPA_Extensions']['SeatCost'] ?? 0),
+                        'traveler_rph' => $attr['TravelerRefNumberRPHList'] ?? null,
+                        'flight_rph'   => $attr['FlightRefNumberRPHList'] ?? null,
+                    ];
+                }
+            }
+
+            // SSRs (extra bag, meal, etc.)
+            if (isset($block['SpecialServiceRequests']['SpecialServiceRequest'])) {
+                $ssrs = $block['SpecialServiceRequests']['SpecialServiceRequest'];
+                if (!isset($ssrs[0])) $ssrs = [$ssrs];
+
+                foreach ($ssrs as $s) {
+                    $attr = $s['@attributes'] ?? [];
+                    $services['ssr'][] = [
+                        'ssr_code'     => $attr['SSRCode'] ?? null,
+                        'item_code'    => $attr['ItemCode'] ?? null,
+                        'title'        => $attr['ItemTitle'] ?? null,
+                        'status'       => $attr['Status'] ?? null,
+                        'amount'       => (float) ($attr['ChargeAmount'] ?? 0),
+                        'currency'     => $attr['ChargeCurrency'] ?? 'PKR',
+                        'expires'      => $attr['Expires'] ?? null,
+                        'traveler_rph' => $attr['TravelerRefNumberRPHList'] ?? null,
+                        'flight_rph'   => $attr['FlightRefNumberRPHList'] ?? null,
+                    ];
+                }
+            }
+        }
+
+        return $services;
     }
 
     public function getCarrierName()
