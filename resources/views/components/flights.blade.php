@@ -407,6 +407,7 @@
         let paxCount = @json($paxCount);
         let isReturn = @json($isReturn);
         let bundles = @json($bundles);
+        const bookingPage = "{{ route('flightBooking') }}";
         let selectedDepartureBundlePrice = 0; // Track selected departure bundle price for PIA
         let selectedTotalPricePkr = 0; // Track total_price_pkr from selected combination
         // console.log(bundles);
@@ -1081,7 +1082,7 @@
                 success: function(response) {
                     if (response.redirect) {
                         localStorage.setItem('flights', window.location.search);
-                        window.location.href = '/flights/booking';
+                        window.location.href = bookingPage;
                     } else if (response.error) {
                         _alert(response.error, 'error');
                     }
