@@ -970,9 +970,9 @@
         };
         // AJAX
         const sendBookingRequest = isDirectBooking => {
-            let data = {};
+            let submitData = {};
             if (airline === "flyjinnah") {
-                data = {
+                submitData = {
                     firstBundleId: firstBundleId ?? null,
                     secondBundleId: secondBundleId ?? null,
                     depSelectedFlight: depSelectedFlight ?? null,
@@ -987,7 +987,7 @@
                     _token: "{{ csrf_token() }}"
                 }
             } else if (airline === "emirate") {
-                data = {
+                submitData = {
                     firstBundleId: firstBundleId ? JSON.parse(decodeURIComponent(firstBundleId)) : null,
                     secondBundleId: secondBundleId ? JSON.parse(decodeURIComponent(secondBundleId)) :
                         null,
@@ -1055,14 +1055,14 @@
                     });
                 }
 
-                data = {
+                submitData = {
                     flights: flightsData,
                     airline: 'airblue',
                     paxCount: paxCount,
                     _token: "{{ csrf_token() }}"
                 }
             } else if (airline === "pia") {
-                data = {
+                submitData = {
                     outbound_bundle: firstBundleId,
                     inbound_bundle: secondBundleId || null,
                     offer_id: responseId,
@@ -1077,7 +1077,7 @@
             $.ajax({
                 type: "POST",
                 url: "{{ route('booking_details') }}",
-                data,
+                data: submitData,
                 beforeSend: () => _loader('show'),
                 success: function(response) {
                     if (response.status === 'success' && response.redirect) {
