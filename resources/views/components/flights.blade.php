@@ -1080,11 +1080,11 @@
                 data,
                 beforeSend: () => _loader('show'),
                 success: function(response) {
-                    if (response.redirect) {
+                    if (response.status === 'success' && response.redirect) {
                         localStorage.setItem('flights', window.location.search);
-                        window.location.href = bookingPage;
-                    } else if (response.error) {
-                        _alert(response.error, 'error');
+                        window.location.href = response.redirect;
+                    } else {
+                        _alert(response.message ?? 'Unknown error', 'error');
                     }
                 },
                 error: function(xhr, status, error) {

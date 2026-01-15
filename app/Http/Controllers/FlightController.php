@@ -195,7 +195,12 @@ class FlightController extends Controller
     {
         $airline = $request->airline ?? '';
         // dd($airline);
-        if (empty($airline)) return;
+        if (empty($airline)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Airline is missing in request'
+            ], 400);
+        }
         $data = [];
         $passengerTypes = [
             'adt' => 'Adult',
