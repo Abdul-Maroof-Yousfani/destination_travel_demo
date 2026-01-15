@@ -306,6 +306,7 @@ class FlightBookingService
                 ];
             }
             if (!empty($tickets)) Ticket::insert($tickets);
+            DB::commit();
             return $booking->load('bookingItems.penalties', 'client', 'tickets');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -1161,7 +1162,7 @@ class FlightBookingService
                 $direction = ($index === 0) ? 'outbound' : 'return';
 
                 $flightModel = Flight::create([
-                    'airline'        => $flight['marketing_airline'] ?? 'PA',
+                    'airline'        => 'airblue',
                     'departure_code' => $departureCode,
                     'arrival_code'   => $arrivalCode,
                     'departure_date' => $departureDate,
