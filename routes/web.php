@@ -4,6 +4,7 @@ use App\Models\User;
 // use Livewire\Livewire;
 use App\Livewire\Admin\BookingList;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Artisan;
 use App\Http\Controllers\HomeController;
 use Filament\Notifications\Notification;
 use App\Http\Controllers\FlightController;
@@ -16,6 +17,11 @@ use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 
 // Livewire::routes();
+Route::get('/clear-cache', function () {
+    Artisan::call('optimize:clear');
+
+    return 'Cache cleared successfully';
+});
 Route::view('/', 'home.home')->name('home');
 Route::view('login', 'login')->name('login');
 Route::view('register', 'register')->name('register');
