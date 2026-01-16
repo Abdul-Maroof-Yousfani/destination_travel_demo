@@ -1,4 +1,4 @@
-name: Deploy Laravel Project (Fast Rsync)
+name: Deploy Laravel via SFTP
 
 on:
   push:
@@ -12,59 +12,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ===============================
-      # 1️⃣ Rsync deploy (FAST)
-      # ===============================
-      - name: Deploy via rsync
-        uses: burnett01/rsync-deployments@7.1.0
-        with:
-          switches: -avz --delete
-          path: ./
-          remote_path: /var/www/travel-demo/
-          remote_host: ${{ secrets.SFTP_HOST }}
-          remote_user: ${{ secrets.SFTP_USER }}   # deployer
-          remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
 
-      # ===============================
-      # 2️⃣ Server-side Laravel setup
-      # ===============================
-      - name: Run SSH commands
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SFTP_HOST }}
-          username: ${{ secrets.SFTP_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            set -e
-
-            cd /var/www/travel-demo
-
-            echo "📁 Ensure required directories"
-            mkdir -p storage/framework/{sessions,views,cache}
-            mkdir -p bootstrap/cache
-
-            echo "🔐 Permissions (ACL-friendly)"
-            chmod -R 775 storage bootstrap/cache
-
-            echo "📦 Composer install"
-            composer install \
-              --no-dev \
-              --prefer-dist \
-              --optimize-autoloader \
-              --no-interaction
-
-            echo "⚙️ Laravel optimize"
-            if [ -f .env ]; then
-              php artisan config:clear
-              php artisan route:clear
-              php artisan view:clear
-
-              php artisan config:cache
-              php artisan route:cache
-              php artisan view:cache
-              # php artisan migrate --force
-            else
-              echo "⚠️ .env not found — skipping artisan"
-            fi
-
-            echo "✅ Deploy finished"
+      - name: Deploy via SFTP using lftp
+        env:
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_USER: ${{ secrets.SFTP_USER }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+          REMOTE_PATH: "/var/www/travel-demo/"
+        run: |
+          echo "🔄 Deploying project to $SFTP_HOST via lftp..."
+          lftp -u "$SFTP_USER","$SFTP_PASSWORD" sftp://$SFTP_HOST <<EOF
+          mirror -R ./ $REMOTE_PATH --delete --verbose --exclude .git --exclude node_modules --exclude vendor
+          quit
+          EOF
