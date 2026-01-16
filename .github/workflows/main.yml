@@ -16,7 +16,7 @@ jobs:
       # 1️⃣ Rsync deploy (FAST)
       # ===============================
       - name: Deploy via rsync
-        uses: burnett01/rsync-deployments@v7
+        uses: burnett01/rsync-deployments@v5
         with:
           switches: -avz --delete
           path: ./
