@@ -1,4 +1,4 @@
-name: Deploy Laravel via SFTP
+name: Deploy Laravel Project
 
 on:
   push:
@@ -9,42 +9,52 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout code
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      # 2️⃣ Install lftp
-      - name: Install lftp
-        run: sudo apt-get update && sudo apt-get install -y lftp
+      # 1. Files upload karna (Khali folder me saari files chali jayengi)
+      - name: Copy files via SFTP
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SFTP_HOST }}
+          username: ${{ secrets.SFTP_USER }}
+          password: ${{ secrets.SFTP_PASS }}
+          port: 22
+          source: "."
+          target: "/var/www/travel-demo/"
+          strip_components: 0
 
-      # 3️⃣ Deploy code via SFTP
-      - name: Deploy project via SFTP
-        env:
-          SFTP_HOST: ${{ secrets.SFTP_HOST }}
-          SFTP_USER: ${{ secrets.SFTP_USER }}
-          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
-          REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
-        run: |
-          echo "🔄 Deploying project to $SFTP_HOST via lftp..."
-          lftp -u "$SFTP_USER","$SFTP_PASSWORD" sftp://$SFTP_HOST <<EOF
-            set sftp:auto-confirm yes
-            mirror -R ./ $REMOTE_PATH --delete --verbose \
-              --exclude .git \
-              --exclude node_modules \
-              --exclude vendor
-            quit
-            EOF
-
-      # 4️⃣ Run Laravel setup via SSH (optional)
-      # NOTE: Password-based SSH login is tricky, but if your server allows it, you can use "appleboy/ssh-action" with password
-      # For safety, here we assume SSH key login is not available, so we skip SSH commands
-      # Instead, you can run these manually or via control panel on server
       
-      # Optional instructions for first-time setup (manual):
-      # ssh $SFTP_USER@$SFTP_HOST
-      # cd $REMOTE_PATH
-      # mkdir -p storage/framework/{sessions,views,cache} bootstrap/cache
-      # chmod -R 775 storage bootstrap/cache
-      # composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
-      # php artisan config:clear && php artisan route:clear && php artisan view:clear
-      # php artisan config:cache && php artisan route:cache && php artisan view:cache
+      # 2. Permissions aur Laravel setup
+      - name: Execute SSH commands
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SFTP_HOST }}
+          username: ${{ secrets.SFTP_USER }}
+          password: ${{ secrets.SFTP_PASS }}
+          script: |
+            cd /var/www/travel-demo
+            
+            # Directory structure create karna (Sudo ki zaroorat nahi)
+            mkdir -p storage/framework/{sessions,views,cache}
+            mkdir -p bootstrap/cache
+
+            # Permissions set karna (Sirf un folders par jo user owned hain)
+            find . -type d -exec chmod 775 {} \;
+            find . -type f -exec chmod 664 {} \;
+            chmod -R 775 storage bootstrap/cache
+
+            # Laravel Optimization
+            # Agar composer path me nahi hai to full path use karein: /usr/local/bin/composer
+            composer install --no-dev --optimize-autoloader --no-interaction
+
+            # Cache clear (ye tabhi chalega jab .env file server par maujood ho)
+            if [ -f .env ]; then
+                php artisan config:cache
+                php artisan route:cache
+                php artisan view:cache
+                # php artisan migrate --force
+            else
+                echo ".env file not found, skipping artisan commands"
+            fi
+
