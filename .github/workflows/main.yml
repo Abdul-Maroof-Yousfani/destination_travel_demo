@@ -23,7 +23,8 @@ jobs:
           REMOTE_PATH: "/var/www/travel-demo/"
         run: |
           echo "🔄 Deploying project to $SFTP_HOST via lftp..."
-          lftp -u "$SFTP_USER","$SFTP_PASSWORD" sftp://$SFTP_HOST <<EOF
-          mirror -R ./ $REMOTE_PATH --delete --verbose --exclude .git --exclude node_modules --exclude vendor
-          quit
+          lftp -u "$SFTP_USER","$SFTP_PASSWORD" sftp://$SFTP_HOST -e "
+            set sftp:auto-confirm yes
+            mirror -R ./ $REMOTE_PATH --delete --verbose --exclude .git --exclude node_modules --exclude vendor
+            quit
           EOF
