@@ -10,51 +10,81 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # 1. Files upload karna (Khali folder me saari files chali jayengi)
-      - name: Copy files via SFTP
+      # ===============================
+      # 1️⃣ Upload files to server
+      # ===============================
+      - name: Upload files via SCP
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.SFTP_HOST }}
-          username: ${{ secrets.SFTP_USER }}
+          username: ${{ secrets.SFTP_USER }}   # deployer
           password: ${{ secrets.SFTP_PASS }}
           port: 22
           source: "."
-          target: "/var/www/travel-demo/"
-          strip_components: 0
+          target: "/var/www/travel-demo"
+          overwrite: true
 
-      
-      # 2. Permissions aur Laravel setup
-      - name: Execute SSH commands
+      # ===============================
+      # 2️⃣ Server-side setup & Laravel commands
+      # ===============================
+      - name: Run SSH commands
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SFTP_HOST }}
           username: ${{ secrets.SFTP_USER }}
           password: ${{ secrets.SFTP_PASS }}
+          port: 22
           script: |
-            sudo chown -R ${{ secrets.SFTP_USER }}:www-data /var/www/travel-demo
+            set -e
+
             cd /var/www/travel-demo
-            
-            # Directory structure create karna (Sudo ki zaroorat nahi)
+
+            echo "📁 Ensure required directories exist"
             mkdir -p storage/framework/{sessions,views,cache}
             mkdir -p bootstrap/cache
 
-            # Permissions set karna (Sirf un folders par jo user owned hain)
-            find . -type d -exec chmod 775 {} \;
-            find . -type f -exec chmod 664 {} \;
+            echo "🔐 Ensure correct permissions (ACL-based setup)"
             chmod -R 775 storage bootstrap/cache
 
-            # Laravel Optimization
-            # Agar composer path me nahi hai to full path use karein: /usr/local/bin/composer
-            composer install --no-dev --optimize-autoloader --no-interaction
+            # -------------------------------------------------
+            # ⚠️ ONE-TIME ONLY (COMMENTED)
+            # Run manually once if ACL not applied yet
+            # -------------------------------------------------
+            # sudo chown -R deployer:deployer /var/www/travel-demo
+            #
+            # sudo setfacl -R -m u:deployer:rwx /var/www/travel-demo
+            # sudo setfacl -R -m u:www-data:rx /var/www/travel-demo
+            #
+            # sudo setfacl -R -m u:www-data:rwx storage bootstrap/cache
+            #
+            # sudo setfacl -R -d -m u:deployer:rwx /var/www/travel-demo
+            # sudo setfacl -R -d -m u:www-data:rx /var/www/travel-demo
+            # sudo setfacl -R -d -m u:www-data:rwx storage bootstrap/cache
+            # -------------------------------------------------
 
-            # Cache clear (ye tabhi chalega jab .env file server par maujood ho)
+            echo "📦 Install composer dependencies"
+            composer install \
+              --no-dev \
+              --optimize-autoloader \
+              --no-interaction \
+              --prefer-dist
+
+            echo "⚙️ Laravel optimizations"
             if [ -f .env ]; then
-                php artisan config:cache
-                php artisan route:cache
-                php artisan view:cache
-                # php artisan migrate --force
+              php artisan key:generate --force || true
+              php artisan config:clear
+              php artisan route:clear
+              php artisan view:clear
+
+              php artisan config:cache
+              php artisan route:cache
+              php artisan view:cache
+
+              # php artisan migrate --force
             else
-                echo ".env file not found, skipping artisan commands"
+              echo "⚠️ .env not found — skipping artisan commands"
             fi
+
+            echo "✅ Deployment completed successfully"
