@@ -9,22 +9,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 2️⃣ Install lftp
       - name: Install lftp
         run: sudo apt-get update && sudo apt-get install -y lftp
 
-      - name: Deploy via SFTP using lftp
+      # 3️⃣ Deploy code via SFTP
+      - name: Deploy project via SFTP
         env:
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
           SFTP_USER: ${{ secrets.SFTP_USER }}
           SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
-          REMOTE_PATH: "/var/www/travel-demo/"
+          REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
         run: |
           echo "🔄 Deploying project to $SFTP_HOST via lftp..."
-          lftp -u "$SFTP_USER","$SFTP_PASSWORD" sftp://$SFTP_HOST -e "
+          lftp -u "$SFTP_USER","$SFTP_PASSWORD" sftp://$SFTP_HOST <<EOF
             set sftp:auto-confirm yes
-            mirror -R ./ $REMOTE_PATH --delete --verbose --exclude .git --exclude node_modules --exclude vendor
+            mirror -R ./ $REMOTE_PATH --delete --verbose \
+              --exclude .git \
+              --exclude node_modules \
+              --exclude vendor
             quit
-          EOF
+            EOF
+
+      # 4️⃣ Run Laravel setup via SSH (optional)
+      # NOTE: Password-based SSH login is tricky, but if your server allows it, you can use "appleboy/ssh-action" with password
+      # For safety, here we assume SSH key login is not available, so we skip SSH commands
+      # Instead, you can run these manually or via control panel on server
+      
+      # Optional instructions for first-time setup (manual):
+      # ssh $SFTP_USER@$SFTP_HOST
+      # cd $REMOTE_PATH
+      # mkdir -p storage/framework/{sessions,views,cache} bootstrap/cache
+      # chmod -R 775 storage bootstrap/cache
+      # composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
+      # php artisan config:clear && php artisan route:clear && php artisan view:clear
+      # php artisan config:cache && php artisan route:cache && php artisan view:cache
