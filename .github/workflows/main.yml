@@ -1,4 +1,4 @@
-name: Deploy Laravel Project
+name: Deploy Laravel Project (Fast Rsync)
 
 on:
   push:
@@ -13,67 +13,48 @@ jobs:
         uses: actions/checkout@v4
 
       # ===============================
-      # 1️⃣ Upload files to server
+      # 1️⃣ Rsync deploy (FAST)
       # ===============================
-      - name: Upload files via SCP
-        uses: appleboy/scp-action@master
+      - name: Deploy via rsync
+        uses: burnett01/rsync-deployments@v7
         with:
-          host: ${{ secrets.SFTP_HOST }}
-          username: ${{ secrets.SFTP_USER }}   # deployer
-          password: ${{ secrets.SFTP_PASS }}
-          port: 22
-          source: "."
-          target: "/var/www/travel-demo"
-          overwrite: true
+          switches: -avz --delete
+          path: ./
+          remote_path: /var/www/travel-demo/
+          remote_host: ${{ secrets.SFTP_HOST }}
+          remote_user: ${{ secrets.SFTP_USER }}   # deployer
+          remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       # ===============================
-      # 2️⃣ Server-side setup & Laravel commands
+      # 2️⃣ Server-side Laravel setup
       # ===============================
       - name: Run SSH commands
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SFTP_HOST }}
           username: ${{ secrets.SFTP_USER }}
-          password: ${{ secrets.SFTP_PASS }}
-          port: 22
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
 
             cd /var/www/travel-demo
 
-            echo "📁 Ensure required directories exist"
+            echo "📁 Ensure required directories"
             mkdir -p storage/framework/{sessions,views,cache}
             mkdir -p bootstrap/cache
 
-            echo "🔐 Ensure correct permissions (ACL-based setup)"
+            echo "🔐 Permissions (ACL-friendly)"
             chmod -R 775 storage bootstrap/cache
 
-            # -------------------------------------------------
-            # ⚠️ ONE-TIME ONLY (COMMENTED)
-            # Run manually once if ACL not applied yet
-            # -------------------------------------------------
-            # sudo chown -R deployer:deployer /var/www/travel-demo
-            #
-            # sudo setfacl -R -m u:deployer:rwx /var/www/travel-demo
-            # sudo setfacl -R -m u:www-data:rx /var/www/travel-demo
-            #
-            # sudo setfacl -R -m u:www-data:rwx storage bootstrap/cache
-            #
-            # sudo setfacl -R -d -m u:deployer:rwx /var/www/travel-demo
-            # sudo setfacl -R -d -m u:www-data:rx /var/www/travel-demo
-            # sudo setfacl -R -d -m u:www-data:rwx storage bootstrap/cache
-            # -------------------------------------------------
-
-            echo "📦 Install composer dependencies"
+            echo "📦 Composer install"
             composer install \
               --no-dev \
+              --prefer-dist \
               --optimize-autoloader \
-              --no-interaction \
-              --prefer-dist
+              --no-interaction
 
-            echo "⚙️ Laravel optimizations"
+            echo "⚙️ Laravel optimize"
             if [ -f .env ]; then
-              php artisan key:generate --force || true
               php artisan config:clear
               php artisan route:clear
               php artisan view:clear
@@ -81,10 +62,9 @@ jobs:
               php artisan config:cache
               php artisan route:cache
               php artisan view:cache
-
               # php artisan migrate --force
             else
-              echo "⚠️ .env not found — skipping artisan commands"
+              echo "⚠️ .env not found — skipping artisan"
             fi
 
-            echo "✅ Deployment completed successfully"
+            echo "✅ Deploy finished"
