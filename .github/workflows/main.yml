@@ -22,7 +22,7 @@ jobs:
           script: |
             cd /var/www/travel-demo/
             # Storage aur Bootstrap ko touch kiye baghair baaki sab saaf
-            find . -maxdepth 1 ! -name '.env' ! -name 'storage' ! -name 'bootstrap' ! -name '.' -exec rm -rf {} +
+            find . -maxdepth 1 ! -name '.env' ! -name 'storage' ! -name 'bootstrap' ! -name '.htaccess' ! -name '.' -exec rm -rf {} +
 
       # 2. Files upload karna (Ignoring storage & bootstrap)
       - name: Copy files via SFTP
