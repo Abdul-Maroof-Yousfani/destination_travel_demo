@@ -97,7 +97,7 @@ class FlightAggregatorService
                     if ($carrier === 'pia') {
                         $allBundles = $allBundles->merge($normalized['bundles'] ?? []);
                     }
-                    // elseif ($carrier === 'flyJinnah') {
+                    // elseif ($carrier === 'flyjinnah') {
                     //     // Fetch bundles if needed (implement in FlyJinnahService)
                     //     $bundles = [];
                     //     $allBundles = $allBundles->merge($bundles);
@@ -236,7 +236,7 @@ class FlightAggregatorService
             $flightsCollection->push($outbound);
             $flightsCollection->push($inbound);
             
-        } elseif ($carrier === 'flyJinnah') {
+        } elseif ($carrier === 'flyjinnah') {
             $outboundFlights = $rawData ?? [];
             foreach ($outboundFlights as $flights) {
                 $data = collect();
@@ -439,7 +439,7 @@ class FlightAggregatorService
                 ];
             }
             return $data;
-        } elseif ($airline === 'flyJinnah') {
+        } elseif ($airline === 'flyjinnah') {
             $data = [];
             foreach ($segments as $segment) {
                 $departure = $segment['departureDateTimeLocal'] ?? null;

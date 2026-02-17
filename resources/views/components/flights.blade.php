@@ -219,7 +219,19 @@
     }
 </style>
 {{-- @dd($flightData) --}}
-@if (!empty($flightData))
+@if (!empty($flightData['errors']))
+    <div class="container mt-3">
+        @foreach ($flightData['errors'] as $error)
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <strong>Notice ({{ strtoupper($error['carrier'] ?? 'General') }}):</strong> 
+                {{ $error['error'] ?? ($error['details'] ?? 'Unable to fetch flights from this carrier.') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endforeach
+    </div>
+@endif
+
+@if (!empty($flightData) && $flightData['total_count'] > 0)
     @php
         $isReturn = $flightData['return_count'] > 0;
         $bundles = $flightData['bundles'];
@@ -251,13 +263,13 @@
                 @endphp
                 <div class="flight-card">
                     <!-- Airline Info -->
-                    <div class="row align-items-center text-center text-md-start">
+                    <div class="row align-items-center text-center text-md-start pointer {{ $key === 0 ? 'toggle-bundle' : 'toggle-bundle-rtn' }}" data-flight="{{ json_encode($flight) }}">
                         <div class="col-12 col-md-2 mb-3 mb-md-0 d-flex flex-column align-items-center">
                             <img src="{{ asset('assets/images/logos/' . $logo . '.png') }}" alt="{{ strtoupper($logo) }}"
                                 class="airline-logo mb-1">
                             <div><strong>{{ $flight['carrier'] ?? '' }}</strong></div>
                             <div class="text-muted small flight-nums">
-                                <p>{{ $firstSegment['carrier'] }} ({{ $firstSegment['flight_number'] }})</p>
+                                <p>{{ $firstSegment['carrier'] ?? '' }} ({{ $firstSegment['flight_number'] ?? '' }})</p>
                             </div>
                         </div>
 
@@ -288,12 +300,15 @@
 
                         <!-- Price Info -->
                         <div class="col-12 col-md-2 text-md-end">
-                            <button class="{{ $key === 0 ? 'price-btn' : 'price-btn-rtn' }} mb-2"
-                                data-flight="{{ json_encode($flight) }}">
+                            <button class="{{ $key === 0 ? 'price-btn' : 'price-btn-rtn' }} mb-2">
+                                {{-- data-flight="{{ json_encode($flight) }}" --}} 
                                 @php
                                     $isPiaReturn = ($flight['carrier'] ?? '') === 'pia' && $key === 1;
+
+                                    $rawPrice = $isPiaReturn ? 0 : ($flight['price'] ?? 0);
+                                    $price = (float) str_replace(',', '', $rawPrice);
                                 @endphp
-                                {{ $flight['code'] ?? 'PKR' }} {{ $isPiaReturn ? '0' : ($flight['price'] ?? 0) }}
+                                {{ $flight['code'] ?? 'PKR' }} {{ number_format($price, 2, '.', ',') }}
                             </button>
                             <div class="text-muted small roundtrip">
                                 {{ $flightData['return_count'] === 0 ? 'One Way' : 'Round Trip' }}</div>
@@ -303,7 +318,7 @@
                     <div class="details-section">
                         <div class=" mb-3">
                             <span
-                                class="durationBadge text-dark">{{ Carbon::parse($flight['arrival']['datetime'])->format('l d, F') }}</span>
+                                class="durationBadge text-dark">{{ isset($flight['arrival']['datetime']) ? Carbon::parse($flight['arrival']['datetime'])->format('l d, F') : 'N/A' }}</span>
                         </div>
                         @forelse ($flight['segments'] as $index => $segment)
                             <div class="card mb-3 shadow-sm">
@@ -318,28 +333,28 @@
                                     <!-- Departure -->
                                     <div class="col-6 col-md-2 mb-3 mb-md-0">
                                         <p class="fw-bold mb-1">
-                                            {{ Carbon::parse($segment['departure']['datetime'])->format('h:i A') }}
+                                            {{ isset($segment['departure']['datetime']) ? Carbon::parse($segment['departure']['datetime'])->format('h:i A') : 'N/A' }}
                                         </p>
                                         <small class="text-muted">
-                                            {{ $segment['departure']['airport'] }}
-                                            ({{ $segment['departure']['code'] }})
+                                            {{ $segment['departure']['airport'] ?? '' }}
+                                            ({{ $segment['departure']['code'] ?? '' }})
                                         </small>
                                     </div>
 
                                     <!-- Duration -->
                                     <div class="col-6 col-md-2 mb-3 mb-md-0 text-center">
                                         <div class="flight-duration">
-                                            {{ str_replace(['PT', 'H', 'M'], ['', 'h ', 'm'], $segment['duration']) }}
+                                            {{ str_replace(['PT', 'H', 'M'], ['', 'h ', 'm'], $segment['duration'] ?? '') }}
                                         </div>
                                     </div>
 
                                     <!-- Arrival -->
                                     <div class="col-6 col-md-2 mb-3 mb-md-0">
                                         <p class="fw-bold mb-1">
-                                            {{ Carbon::parse($segment['arrival']['datetime'])->format('h:i A') }}
+                                            {{ isset($segment['arrival']['datetime']) ? Carbon::parse($segment['arrival']['datetime'])->format('h:i A') : '' }}
                                         </p>
                                         <small class="text-muted">
-                                            {{ $segment['arrival']['airport'] }} ({{ $segment['arrival']['code'] }})
+                                            {{ $segment['arrival']['airport'] ?? '' }} ({{ $segment['arrival']['code'] ?? '' }})
                                         </small>
                                     </div>
 
@@ -347,7 +362,7 @@
                                     <div class="col-6 col-md-2 mb-3 mb-md-0 text-center">
                                         <p class="fw-bold mb-1">Flight No</p>
                                         <span
-                                            class="badge bg-light text-dark">{{ $segment['carrier'] }}-{{ $segment['flight_number'] }}</span>
+                                            class="badge bg-light text-dark">{{ $segment['carrier'] ?? '' }}-{{ $segment['flight_number'] ?? '' }}</span>
                                     </div>
 
                                     <!-- Cabin Class -->
@@ -401,6 +416,17 @@
     @empty
         <p class="text-center text-muted">No flights available.</p>
     @endforelse
+@else
+    <div class="container mt-5">
+        <div class="text-center p-5 bg-white shadow-sm rounded-3">
+            <div class="mb-4">
+                <i class="fa-solid fa-plane-slash fa-4x text-secondary"></i>
+            </div>
+            <h3>No Flights Found</h3>
+            <p class="text-muted">We couldn't find any flights for your selected route and dates. Please try different dates or destinations.</p>
+            <a href="{{ route('home') }}" class="btn btn-primary mt-3 px-4">Search Again</a>
+        </div>
+    </div>
 @endif
 <script>
     $(document).ready(function() {
@@ -414,6 +440,8 @@
         let extras = @json($flightData['extras']);
         let departureFlight, returnFlight, returnFlightRaw, selectedCarrier;
         let responseId, firstBundleId, offerIdsDep, secondBundleId, offerIdsRtn;
+        let offerItemIds, paxRefIds; // For PIA offer_item_ids and pax_ref_ids
+        let bundleOwner; // For PIA bundle_owner
         let firstFlight, firstConnectedFlight, returnConnectedFlight;
         let segments, flightTotalFare, rtnSelectedFlight, airline, depSelectedFlight;
         // let firstSegments, secondSegments;
@@ -421,7 +449,8 @@
             $(this).closest(".flight-card").find(".details-section").slideToggle();
         });
 
-        $(".price-btn").click(function() {
+        // $(".price-btn").click(function() {
+        $(".toggle-bundle").click(function() {
             departureFlight = $(this).data('flight');
             selectedCarrier = departureFlight.carrier;
             if (selectedCarrier === 'pia') {
@@ -430,7 +459,7 @@
                 // console.log('Looking for journey_id in flightRaw:', departureFlight.flightRaw);
                 renderPiaBundles(this, false);
             }
-            if (selectedCarrier === 'flyJinnah') {
+            if (selectedCarrier === 'flyjinnah') {
                 depSelectedFlight = departureFlight.flightRaw;
                 firstFlight = getFlightData(depSelectedFlight.flightSegments[0]);
                 firstConnectedFlight = getFlightData(depSelectedFlight.flightSegments[1] || null);
@@ -470,12 +499,13 @@
             // }
         });
 
-        $(".price-btn-rtn").click(function() {
+        // $(".price-btn-rtn").click(function() {
+        $(".toggle-bundle-rtn").click(function() {
             returnFlight = $(this).data('flight');
             returnFlightRaw = returnFlight;
             if (selectedCarrier === 'emirates') {
                 renderEmirateBundles(returnFlight.bundles || [], this, true);
-            } else if (selectedCarrier === 'flyJinnah') {
+            } else if (selectedCarrier === 'flyjinnah') {
                 rtnSelectedFlight = returnFlightRaw.flightRaw;
                 let newReturnFlight = getFlightData(rtnSelectedFlight.flightSegments[0]);
                 returnConnectedFlight = getFlightData(rtnSelectedFlight.flightSegments[1] || null);
@@ -837,7 +867,6 @@
                 $bundleLoop.html(finalOutput);
             }, 300);
         };
-
         $(document).on('click', '.bookBtn', function() {
             airline = $(this).data('airline');
             if (['flyjinnah', 'emirate', 'airblue'].includes(airline)) {
@@ -900,20 +929,34 @@
                 const isReturnBtn = $(this).data('is-return');
                 const bundlePrice = $(this).data('bundle-price'); // Get the bundle price
                 const totalPrice = $(this).data('total-price'); // Get total_price_pkr from combination
-                
+                const offerItemIdsRaw = $(this).data('offer-item-ids');
+                const paxRefIdsRaw = $(this).data('pax-ref-ids');
+                const bundleOwnerRaw = $(this).data('bundle-owner');
+
+                // Parse JSON data
+                const parsedOfferItemIds = offerItemIdsRaw ? JSON.parse(decodeURIComponent(
+                    offerItemIdsRaw)) : [];
+                const parsedPaxRefIds = paxRefIdsRaw ? JSON.parse(decodeURIComponent(paxRefIdsRaw)) :
+            [];
+                const parsedbundleOwner = bundleOwnerRaw ? JSON.parse(
+                    decodeURIComponent(bundleOwnerRaw)) : null;
+
                 if (!isReturnBtn) {
                     firstBundleId = bundleName; // Store name (e.g. ECOLIGHT)
                     responseId = recommendedId; // Store for outbound
                     selectedDepartureBundlePrice = bundlePrice; // Store departure bundle price
                     selectedTotalPricePkr = totalPrice; // Store total price
-                    
+                    offerItemIds = parsedOfferItemIds; // Store offer_item_ids
+                    paxRefIds = parsedPaxRefIds; // Store pax_ref_ids
+                    bundleOwner = parsedbundleOwner; // Store bundle_owner
+
                     if (isReturn) {
                         // Switch to Return View
-                    $('#departure-text').removeClass('active');
-                    $('#return-text').addClass('active');
-                    $("#departure-section").slideUp(500, function() {
-                        $("#return-section").fadeIn(500);
-                    });
+                        $('#departure-text').removeClass('active');
+                        $('#return-text').addClass('active');
+                        $("#departure-section").slideUp(500, function() {
+                            $("#return-section").fadeIn(500);
+                        });
                     } else {
                         // One Way - Ready to book
                         sendBookingRequest(false);
@@ -921,9 +964,12 @@
                 } else {
                     // Return Flight Selected
                     secondBundleId = bundleName;
-                    responseId = recommendedId; // This is the recommended_offer_id for the WHOLE itinerary (Out+In)
+                    responseId =
+                        recommendedId; // This is the recommended_offer_id for the WHOLE itinerary (Out+In)
                     selectedTotalPricePkr = totalPrice; // Update with return combination total price
-                    
+                    offerItemIds = parsedOfferItemIds; // Update offer_item_ids for return
+                    paxRefIds = parsedPaxRefIds; // Update pax_ref_ids for return
+
                     sendBookingRequest(false);
                 }
 
@@ -1067,9 +1113,14 @@
                     inbound_bundle: secondBundleId || null,
                     offer_id: responseId,
                     total_price_pkr: selectedTotalPricePkr,
+                    offer_item_ids: offerItemIds || [],
+                    pax_ref_ids: paxRefIds || [],
+                    bundle_owner: bundleOwner || null,
                     departureFlight: departureFlight ?? null,
                     returnFlight: returnFlight ?? null,
-                    airline, paxCount, _token: "{{ csrf_token() }}"
+                    airline,
+                    paxCount,
+                    _token: "{{ csrf_token() }}"
                 }
             }
             // console.log('ajax data =>', data);
@@ -1080,11 +1131,11 @@
                 data: submitData,
                 beforeSend: () => _loader('show'),
                 success: function(response) {
-                    if (response.status === 'success' && response.redirect) {
+                    if (response.redirect) {
                         localStorage.setItem('flights', window.location.search);
-                        window.location.href = response.redirect;
-                    } else {
-                        _alert(response.message ?? 'Unknown error', 'error');
+                        window.location.href = bookingPage;
+                    } else if (response.error) {
+                        _alert(response.error, 'error');
                     }
                 },
                 error: function(xhr, status, error) {
@@ -1117,29 +1168,33 @@
 
             // Group bundles and find min price (Outbound) or exact price (Inbound)
             const combinations = extras.pia.combinations || [];
-            
+            // console.log(combinations)
+
             let relevantCombos = [];
-            const flightJourneyId = isReturn ? returnFlightRaw.flightRaw.journey_id : departureFlight.flightRaw.journey_id;
-            
+            const flightJourneyId = isReturn ? returnFlightRaw.flightRaw.journey_id : departureFlight
+                .flightRaw.journey_id;
+
             // console.log('Flight Journey ID:', flightJourneyId, 'isReturn:', isReturn);
-            
+
             if (!isReturn) {
-                 // Outbound: Filter combinations that include this journey_id in their journeys object
-                relevantCombos = combinations.filter(c => c.journeys && c.journeys.hasOwnProperty(flightJourneyId));
+                // Outbound: Filter combinations that include this journey_id in their journeys object
+                relevantCombos = combinations.filter(c => c.journeys && c.journeys.hasOwnProperty(
+                    flightJourneyId));
             } else {
                 // Inbound: Filter by combinations that include the selected outbound bundle AND the current inbound journey
-                relevantCombos = combinations.filter(c => 
-                    c.journeys && 
+                relevantCombos = combinations.filter(c =>
+                    c.journeys &&
                     c.journeys.hasOwnProperty(departureFlight.flightRaw.journey_id) &&
-                    c.journeys[departureFlight.flightRaw.journey_id] === firstBundleId && // outbound bundle name must match
+                    c.journeys[departureFlight.flightRaw.journey_id] === firstBundleId &&
+                    // outbound bundle name must match
                     c.journeys.hasOwnProperty(flightJourneyId)
                 );
             }
-            
+
             // console.log('Relevant combos found:', relevantCombos.length, relevantCombos);
-            
+
             if (relevantCombos.length === 0) {
-                 setTimeout(() => {
+                setTimeout(() => {
                     $bundleLoop.html(
                         `<div class="w-100 bg-body-secondary text-dark-emphasis rounded-2 text-center py-2">No valid bundles for this selection</div>`
                     );
@@ -1148,22 +1203,23 @@
             }
 
             let uniqueBundles;
-            
+
             if (!isReturn) {
                 // OUTBOUND: Show ALL available bundles from the bundles collection
                 // Not just the ones in combinations, but validate which are actually bookable
                 uniqueBundles = Object.keys(bundles).map(bundleKey => {
                     const bundleDef = bundles[bundleKey];
                     const bundleName = bundleDef.name || bundleKey.toUpperCase();
-                    
+
                     // Find the minimum price for this bundle with this journey
-                    const combosForBundle = relevantCombos.filter(c => c.journeys[flightJourneyId] === bundleName);
-                    
+                    const combosForBundle = relevantCombos.filter(c => c.journeys[
+                        flightJourneyId] === bundleName);
+
                     // console.log(`Bundle ${bundleName}: found ${combosForBundle.length} combos`);
                     if (combosForBundle.length > 0) {
                         // console.log(`  Prices: ${combosForBundle.map(c => c.total_price_pkr).join(', ')}`);
                     }
-                    
+
                     if (combosForBundle.length === 0) {
                         // Bundle not available for this flight, but still show it
                         return {
@@ -1173,14 +1229,14 @@
                             available: false
                         };
                     }
-                    
+
                     // Find minimum price using reduce for accuracy
-                    const minCombo = combosForBundle.reduce((min, c) => 
-                        parseFloat(c.total_price_pkr) < parseFloat(min.total_price_pkr) ? c : min
-                    , combosForBundle[0]);
-                    
+                    const minCombo = combosForBundle.reduce((min, c) =>
+                        parseFloat(c.total_price_pkr) < parseFloat(min.total_price_pkr) ? c :
+                        min, combosForBundle[0]);
+
                     // console.log(`  Min price selected: ${minCombo.total_price_pkr}`);
-                    
+
                     return {
                         name: bundleName,
                         minPrice: parseFloat(minCombo.total_price_pkr),
@@ -1192,30 +1248,32 @@
                 // INBOUND: Only show bundles that are valid with the selected outbound bundle
                 const grouped = {};
                 relevantCombos.forEach(c => {
-                     const bundleName = c.journeys[flightJourneyId]; // Get bundle name for this specific journey
-                     if (!grouped[bundleName]) {
-                         grouped[bundleName] = {
-                             name: bundleName,
-                             minPrice: parseFloat(c.total_price_pkr),
-                             combo: c,
-                             available: true
-                         };
-                     } else {
-                         if (parseFloat(c.total_price_pkr) < grouped[bundleName].minPrice) {
-                             grouped[bundleName].minPrice = parseFloat(c.total_price_pkr);
-                             grouped[bundleName].combo = c;
-                         }
-                     }
+                    const bundleName = c.journeys[
+                        flightJourneyId]; // Get bundle name for this specific journey
+                    if (!grouped[bundleName]) {
+                        grouped[bundleName] = {
+                            name: bundleName,
+                            minPrice: parseFloat(c.total_price_pkr),
+                            combo: c,
+                            available: true
+                        };
+                    } else {
+                        if (parseFloat(c.total_price_pkr) < grouped[bundleName].minPrice) {
+                            grouped[bundleName].minPrice = parseFloat(c.total_price_pkr);
+                            grouped[bundleName].combo = c;
+                        }
+                    }
                 });
                 uniqueBundles = Object.values(grouped);
             }
-            
+
             // console.log('Unique bundles:', uniqueBundles);
 
-             setTimeout(() => {
+            setTimeout(() => {
                 const cardsHtml = uniqueBundles.map(item => {
-                    
-                    const bundleDef = bundles[item.name.toLowerCase()] || bundles[item.name] || {};
+
+                    const bundleDef = bundles[item.name.toLowerCase()] || bundles[item
+                        .name] || {};
                     const displayName = bundleDef.display_name || item.name;
                     const benefits = bundleDef.included || [];
                     const baggageDesc = bundleDef.baggage_description || 'N/A';
@@ -1244,14 +1302,16 @@
                     let priceDisplay;
                     if (isReturn && selectedDepartureBundlePrice > 0) {
                         // For return flights, show the difference from selected departure bundle
-                        const priceDiff = Math.round(item.minPrice - selectedDepartureBundlePrice);
-                        priceDisplay = priceDiff >= 0 ? `+${formatCurrency(priceDiff)}` : `-${formatCurrency(Math.abs(priceDiff))}`;
+                        const priceDiff = Math.round(item.minPrice -
+                            selectedDepartureBundlePrice);
+                        priceDisplay = priceDiff >= 0 ? `+${formatCurrency(priceDiff)}` :
+                            `-${formatCurrency(Math.abs(priceDiff))}`;
                     } else {
                         // For departure flights, show the full price
                         priceDisplay = formatCurrency(Math.round(item.minPrice));
                     }
                     const price = formatCurrency(Math.round(item.minPrice));
-                    
+
                     return `
                         <div class="card h-100 shadow-sm mx-2" style="min-width: 250px;">
                             <div class="card-header bg-light fw-bold">
@@ -1273,6 +1333,9 @@
                                     data-recommended-id="${item.combo?.recommended_offer_id || ''}"
                                     data-bundle-price="${item.minPrice}"
                                     data-total-price="${item.combo?.total_price_pkr || item.minPrice}"
+                                    data-offer-item-ids="${encodeURIComponent(JSON.stringify(item.combo?.offer_item_ids || []))}"
+                                    data-pax-ref-ids="${encodeURIComponent(JSON.stringify(item.combo?.pax_ref_ids || []))}"
+                                    data-bundle-owner="${encodeURIComponent(JSON.stringify(item.combo?.offer_owners[0] ?? item.combo?.offer_owners ?? null))}"
                                 >
                                     PKR ${priceDisplay}
                                 </button>
@@ -1347,6 +1410,5 @@
                 `);
             }, 500);
         };
-
     });
 </script>

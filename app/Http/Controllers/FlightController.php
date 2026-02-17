@@ -196,10 +196,7 @@ class FlightController extends Controller
         // dd($request->all());
         $airline = $request->airline ?? '';
         if (empty($airline)) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Airline is missing in request'
-            ], 400);
+            return response()->json(['status' => 'error', 'message' => 'Airline is missing in request'], 400);
         }
         $data = [];
         $passengerTypes = [
@@ -213,7 +210,7 @@ class FlightController extends Controller
             'notes' => "User fetch booking details on {$now}",
         ]);
         // dd($request->all());
-        if ($airline === 'emirate') {
+        if ($airline === 'emirate' || $airline === 'emirates') {
             $data = [
                 'airline' => $airline,
                 'logo' => 'emirates.png',
@@ -311,6 +308,9 @@ class FlightController extends Controller
                 'outbound_bundle' => $request->outbound_bundle,
                 'inbound_bundle' => $request->inbound_bundle,
                 'passengerTypes' => $passengerTypes,
+                'offer_item_ids' => $request->offer_item_ids ?? null,
+                'pax_ref_ids' => $request->pax_ref_ids ?? null,
+                'owner' => $request->bundle_owner ?? null,
             ];
             $totalFarePrice = ($data['total_price_pkr'] ?? 0);
             session(['data' => $data, 'totalFare' => $totalFarePrice ?? null]);
@@ -523,7 +523,7 @@ class FlightController extends Controller
         $flights = [];
         $now = now()->format('d M Y h:i A');
         // dd($request->all(), session('data'), session('totalFare'));
-        if ($airline === 'emirate') {
+        if ($airline === 'emirate' || $airline === 'emirates') {
             $cabinClass = session('cabinClass', 'Y');
             $data = $request->only(['user', 'paymentOnHold', 'offerIds', 'bundleId', 'responseId', 'paxCount', 'passengers']);
             $bookFlight = $this->emiratesService->bookFlight($data ?? null);
@@ -566,7 +566,7 @@ class FlightController extends Controller
             $flights = app(FlightBookingService::class)->handleBookingFJ($bookingResponse, $client->id);
         } elseif ($airline === 'pia') {
             $cabinClass = session('cabinClass', 'Y');
-            $data = $request->only(['user', 'passengers', 'data', 'paxCount']);
+            $data = $request->only(['user', 'passengers', 'paxCount', 'offer_item_ids', 'pax_ref_ids', 'offerId', 'owner', 'total_price']);
             $bookFlight = $this->piaService->bookFlight($data ?? null);
             // dd($bookFlight);
             if (!empty($bookFlight['error'])) {
@@ -717,20 +717,20 @@ class FlightController extends Controller
             if (!empty($orderRetrieve['error'])) {
                 return response()->json(['status'  => 'error', 'message' => $orderRetrieve['message'], 'details' => $orderRetrieve['error'] ?? null], 400);
             }
-            $skipComparison = $orderRetrieve['totalPrice'] <= 0;
+            // $skipComparison = $orderRetrieve['totalPrice'] <= 0;
 
-            if ($skipComparison) {
-                return response()->json([
-                    'status'   => 'error',
-                    'message'  => 'Fetched latest order details. Could not find a valid total price in the response.',
-                    'note'     => 'Price comparison skipped due to missing/invalid amounts in GetReservationbyPNR response.',
-                    'data'     => $orderRetrieve,
-                ], 400);
-            }
+            // if ($skipComparison) {
+            //     return response()->json([
+            //         'status'   => 'error',
+            //         'message'  => 'Fetched latest order details. Could not find a valid total price in the response.',
+            //         'note'     => 'Price comparison skipped due to missing/invalid amounts in GetReservationbyPNR response.',
+            //         'data'     => $orderRetrieve,
+            //     ], 400);
+            // }
             $comparison = $this->generatePriceComparisonFJ(
                 (float) $booking->price,
                 $booking->price_code,
-                (float) $orderRetrieve['totalPrice'],
+                (float) $booking->price,
                 'PKR'
             );
             $updatedBooking = app(FlightBookingService::class)->updateBookingFieldsPia($orderRetrieve, $booking->id);
@@ -942,7 +942,6 @@ class FlightController extends Controller
                 'orderId' => $booking->order_id,
                 'ownerCode' => $booking->order_owner,
             ]);
-            // dd($orderChange);
             $alreadyTicketedMsg = str_contains(strtolower($orderChange['message'] ?? ''), 'already');
             if ($alreadyTicketedMsg) return response()->json(['status' => 'error', 'message' => 'This flight was already ticketed.'], 409);
             $errorMessage = $orderChange['error'] ?? null;
@@ -1089,6 +1088,7 @@ class FlightController extends Controller
         } elseif ($airline === 'airblue') {
             $data = [
                 'orderId' => $booking->order_id ?? null,
+                'bookingId' => $booking->id ?? null,
             ];
             $orderCancel = $this->airblueService->orderCancel($data ?? []);
             if (!empty($orderCancel['warnings'])) {
