@@ -83,25 +83,22 @@
         <div class="container-fluid container-fluid-max">
             <div class="row">
                 <div class="col-md-12 col-lg-12">
-                    @if($request->has('routeType'))
                     <div class="flight-selection">
                         @if ($routeType === 'MULTI')
                             @foreach($data['legs'] as $legIndex => $options)
-                                @if ($options->count() > 0)
-                                    @php
-                                        $firstFlight = $options->first();
-                                        $from = $firstFlight['departure']['code'] ?? '';
-                                        $to = $firstFlight['arrival']['code'] ?? '';
-                                        $date = $firstFlight['departure']['date'] ?? '';
-                                    @endphp
-                                    <div class="step step-{{ $legIndex }} {{ $loop->first ? 'active' : '' }}" id="leg-text-{{ $legIndex }}">
-                                        <span class="step-number">{{ $legIndex }}</span>
-                                        <span class="step-text">
-                                            Leg {{ $legIndex }}: {{ $from }} → {{ $to }}
-                                            <small class="text-muted d-block">{{ \Carbon\Carbon::parse($date)->format('D, d M Y') }}</small>
-                                        </span>
-                                    </div>
-                                @endif
+                                @php
+                                    $firstFlight = $options->first();
+                                    $from = $firstFlight['departure']['code'] ?? '';
+                                    $to = $firstFlight['arrival']['code'] ?? '';
+                                    $date = $firstFlight['departure']['date'] ?? '';
+                                @endphp
+                                <div class="step step-{{ $legIndex }} {{ $loop->first ? 'active' : '' }}" id="leg-text-{{ $legIndex }}">
+                                    <span class="step-number">{{ $legIndex }}</span>
+                                    <span class="step-text">
+                                        Leg {{ $legIndex }}: {{ $from }} → {{ $to }}
+                                        <small class="text-muted d-block">{{ \Carbon\Carbon::parse($date)->format('D, d M Y') }}</small>
+                                    </span>
+                                </div>
                             @endforeach
                         @else
                             <div class="step step-1 active" id="departure-text">
@@ -116,8 +113,6 @@
                             @endif
                         @endif
                     </div>
-                    @endif
-                    @if($request->has('routeType'))
                     <div class="flight-wrapper">
                         <div class="flight-top-bar">
                             <div class="left-tabs">
@@ -269,20 +264,9 @@
                             </div>
                         </div>
                     </div>
-                    @elseif(isset($data['hotels']))
-                    <div class="row">
-                        <div class="col-12">
-                            <h3 class="mb-4" style="color: #1a1a1a; font-weight: 700; font-family: 'Poppins', sans-serif;">
-                                <i class="fa-solid fa-hotel me-2" style="color: #00788a;"></i> 
-                                Hotels in {{ $request['destination_name'] ?? 'your destination' }}
-                            </h3>
-                        </div>
-                    </div>
-                    @endif
                 </div>
                 <div class="col-md-12 col-lg-9">
                     <!-- CONTENT SECTIONS -->
-                    @if($request->has('routeType'))
                     <div class="tab-content mt-0 active" id="suggested">
                         <h3>Suggested Flights</h3>
                         @if($routeType === 'MULTI')
@@ -300,13 +284,25 @@
                         <h3>Fastest Flights</h3>
                          <x-flights :flightData="$data" :paxCount="$paxCount" />
                     </div> --}}
-                    @elseif(isset($data['hotels']))
-                    <div class="tab-content mt-0 active">
-                        <x-hotels :hotelsData="$data" :request="$request" />
-                    </div>
-                    @endif
                 </div>
-                <x-customer-support/>
+                <div class="col-md-12 col-lg-3 br-left">
+                    <div class="support-box">
+                        <h4>24/7 Customer Support</h4>
+                        <div class="support-item">
+                           <a href="tel:+92 3123456789"> <i class="fa fa-phone"></i>
+                            <span>(021) 3123456789</span></a>
+                        </div>
+                        <div class="support-item">
+                           <a href="tel:+92 3123456789"> <i class="fa fa-mobile"></i>
+                            <span>+92 3123456789</span></a>
+                        </div>
+                        <div class="support-item">
+                           <a href="mailto:support@travelandtour.com"> <i class="fa fa-envelope"></i>
+                            <span>support@travelandtour.com</span></a>
+                        </div>
+                    </div>
+                     <button class="btn btn-share  mt-2 "><i class="fa-regular fa-share-from-square"></i> Share</button>
+                </div>
             </div>
         </div>
     </section>
@@ -315,62 +311,69 @@
 @section('script')
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        localStorage.clear();
-        const containers = document.querySelectorAll(".filter-dropdown-container");
+document.addEventListener("DOMContentLoaded", function() {
+    localStorage.clear();
+    const containers = document.querySelectorAll(".filter-dropdown-container");
 
-        containers.forEach(container => {
-            const toggle = container.querySelector(".filter-toggle");
-            const dropdown = container.querySelector(".filter-dropdown");
-            const items = dropdown.querySelectorAll(".dropdown-item"); // update class if needed
+    containers.forEach(container => {
+        const toggle = container.querySelector(".filter-toggle");
+        const dropdown = container.querySelector(".filter-dropdown");
+        const items = dropdown.querySelectorAll(".dropdown-item"); // update class if needed
 
-            // Toggle dropdown on button click
-            toggle.addEventListener("click", function(e) {
-                e.stopPropagation();
-                
-                // Close other dropdowns
-                containers.forEach(c => {
-                    if (c !== container) {
-                        c.querySelector(".filter-dropdown").classList.remove("open");
-                    }
-                });
-
-                // Toggle this one
-                dropdown.classList.toggle("open");
+        // Toggle dropdown on button click
+        toggle.addEventListener("click", function(e) {
+            e.stopPropagation();
+            
+            // Close other dropdowns
+            containers.forEach(c => {
+                if (c !== container) {
+                    c.querySelector(".filter-dropdown").classList.remove("open");
+                }
             });
 
-            // Prevent dropdown from closing when clicking inside
-            dropdown.addEventListener("click", function(e) {
-                e.stopPropagation();
-            });
-
-            // Close dropdown when selecting an item
-            items.forEach(item => {
-                item.addEventListener("click", function(e) {
-                    e.stopPropagation();
-
-                    // Update toggle text
-                    toggle.textContent = this.textContent;
-
-                    // Close dropdown
-                    dropdown.classList.remove("open");
-
-                    // Optional: highlight selected
-                    items.forEach(i => i.classList.remove("selected"));
-                    this.classList.add("selected");
-                });
-            });
+            // Toggle this one
+            dropdown.classList.toggle("open");
         });
 
-        // Close all dropdowns when clicking outside
-        document.addEventListener("click", function() {
-            containers.forEach(container => {
-                const dropdown = container.querySelector(".filter-dropdown");
+        // Prevent dropdown from closing when clicking inside
+        dropdown.addEventListener("click", function(e) {
+            e.stopPropagation();
+        });
+
+        // Close dropdown when selecting an item
+        items.forEach(item => {
+            item.addEventListener("click", function(e) {
+                e.stopPropagation();
+
+                // Update toggle text
+                toggle.textContent = this.textContent;
+
+                // Close dropdown
                 dropdown.classList.remove("open");
+
+                // Optional: highlight selected
+                items.forEach(i => i.classList.remove("selected"));
+                this.classList.add("selected");
             });
         });
     });
 
+    // Close all dropdowns when clicking outside
+    document.addEventListener("click", function() {
+        containers.forEach(container => {
+            const dropdown = container.querySelector(".filter-dropdown");
+            dropdown.classList.remove("open");
+        });
+    });
+});
+</script>
+
+
+
+
+
+
+<script>
     const tabs = document.querySelectorAll(".tab");
     const contents = document.querySelectorAll(".tab-content");
 
