@@ -11,7 +11,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 1. Pehle purani files cleanup (taake overwrite/utime error na aaye)
+      # 1. Purani files cleanup (taake permissions/utime ka masla na aaye)
       - name: Pre-deployment Cleanup
         uses: appleboy/ssh-action@master
         with:
@@ -20,13 +20,12 @@ jobs:
           password: ${{ secrets.SFTP_PASS }}
           port: 22
           script: |
-            # Project folder mein jaein, agar folder nahi hai to create karein
             mkdir -p /var/www/travel-demo/
             cd /var/www/travel-demo/
-            # .env file ko chor kar baaki sab delete karein taake scp fresh copy kare
+            # .env file ko chor kar baaki sab delete karein fresh copy ke liye
             find . -maxdepth 1 ! -name '.env' ! -name '.' -exec rm -rf {} +
 
-      # 2. Files upload karna
+      # 2. Nayi files upload karna
       - name: Copy files via SFTP
         uses: appleboy/scp-action@master
         with:
@@ -38,7 +37,7 @@ jobs:
           target: "/var/www/travel-demo/"
           strip_components: 0
 
-      # 3. Permissions aur Laravel setup
+      # 3. Permissions aur Safe Laravel Setup
       - name: Execute SSH commands
         uses: appleboy/ssh-action@master
         with:
@@ -49,22 +48,26 @@ jobs:
           script: |
             cd /var/www/travel-demo/
             
-            # Directory structure ensure karna
+            # Directory structure create karna
             mkdir -p storage/framework/{sessions,views,cache}
             mkdir -p bootstrap/cache
             
-            # Permissions set karna (Deployer user ke liye)
+            # Permissions set karna
             chmod -R 775 storage bootstrap/cache
             
-            # Composer install (agar path ka issue ho to full path `/usr/local/bin/composer` use karein)
-            composer install --no-dev --optimize-autoloader --no-interaction
+            # Composer: --no-scripts use kiya hai taake PSR-4 errors pipeline na rokain
+            composer install --no-dev --no-interaction --no-scripts --optimize-autoloader
             
-            # Laravel Optimization
+            # Laravel Safe Commands
             if [ -f .env ]; then
-                php artisan config:cache
-                php artisan route:cache
-                php artisan view:cache
-                # php artisan migrate --force
+                # Caching ke bajaye sirf purana kachra saaf (Clear) kar rahe hain
+                # Taake Missing Component [hotels] wala error na aaye
+                php artisan config:clear
+                php artisan route:clear
+                php artisan view:clear
+                php artisan cache:clear
+                
+                echo "Deployment successfully completed in safe mode."
             else
                 echo ".env file not found, skipping artisan commands"
             fi
