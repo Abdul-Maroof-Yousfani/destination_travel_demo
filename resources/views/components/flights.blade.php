@@ -221,13 +221,6 @@
 {{-- @dd($flightData) --}}
 @if (!empty($flightData['errors']))
     <div class="container mt-3">
-        @foreach ($flightData['errors'] as $error)
-            <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                <strong>Notice ({{ strtoupper($error['carrier'] ?? 'General') }}):</strong> 
-                {{ $error['error'] ?? ($error['details'] ?? 'Unable to fetch flights from this carrier.') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        @endforeach
     </div>
 @endif
 
