@@ -21,11 +21,10 @@ jobs:
           port: 22
           script: |
             cd /var/www/travel-demo/
-            # .env, storage, aur bootstrap/cache ko chor kar baaki sab delete karein
-            # Isse 'Permission Denied' nahi aayega kyunki storage touch hi nahi hogi
+            # Storage aur Bootstrap ko touch kiye baghair baaki sab saaf
             find . -maxdepth 1 ! -name '.env' ! -name 'storage' ! -name 'bootstrap' ! -name '.' -exec rm -rf {} +
 
-      # 2. Files upload karna
+      # 2. Files upload karna (Ignoring storage & bootstrap)
       - name: Copy files via SFTP
         uses: appleboy/scp-action@master
         with:
@@ -33,10 +32,8 @@ jobs:
           username: ${{ secrets.SFTP_USER }}
           password: ${{ secrets.SFTP_PASS }}
           port: 22
-          source: "."
+          source: "*, !storage, !bootstrap" # <--- Yahan magic hai, in folders ko skip kar do
           target: "/var/www/travel-demo/"
-          # Is baar storage upload nahi karenge taake purani permissions na hilen
-          # Agar aapka local storage khali hai to ye behtar hai
           strip_components: 0
 
       # 3. Final Setup
@@ -50,7 +47,12 @@ jobs:
           script: |
             cd /var/www/travel-demo/
             
-            # Composer and Artisan (Safe Mode)
+            # Folders ensure karein (agar nahi hain to)
+            mkdir -p storage/framework/{sessions,views,cache}
+            mkdir -p storage/logs
+            mkdir -p bootstrap/cache
+            
+            # Laravel Setup
             composer install --no-dev --no-interaction --no-scripts --optimize-autoloader
             
             if [ -f .env ]; then
@@ -58,8 +60,5 @@ jobs:
                 php artisan route:clear
                 php artisan view:clear
                 php artisan cache:clear
-                # Logs folder fix (ACL will handle the rest)
-                touch storage/logs/laravel.log
-                chmod 666 storage/logs/laravel.log
-                echo "Deployment Successful with ACL!"
+                echo "Deployment Successful! Storage was not touched by SCP."
             fi
