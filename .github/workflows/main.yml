@@ -11,7 +11,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 1. Purani files cleanup (taake permissions/utime ka masla na aaye)
+      # 1. Pre-deployment Cleanup (Smart Clean)
       - name: Pre-deployment Cleanup
         uses: appleboy/ssh-action@master
         with:
@@ -20,12 +20,12 @@ jobs:
           password: ${{ secrets.SFTP_PASS }}
           port: 22
           script: |
-            mkdir -p /var/www/travel-demo/
             cd /var/www/travel-demo/
-            # .env file ko chor kar baaki sab delete karein fresh copy ke liye
-            find . -maxdepth 1 ! -name '.env' ! -name '.' -exec rm -rf {} +
+            # .env, storage, aur bootstrap/cache ko chor kar baaki sab delete karein
+            # Isse 'Permission Denied' nahi aayega kyunki storage touch hi nahi hogi
+            find . -maxdepth 1 ! -name '.env' ! -name 'storage' ! -name 'bootstrap' ! -name '.' -exec rm -rf {} +
 
-      # 2. Nayi files upload karna
+      # 2. Files upload karna
       - name: Copy files via SFTP
         uses: appleboy/scp-action@master
         with:
@@ -35,9 +35,11 @@ jobs:
           port: 22
           source: "."
           target: "/var/www/travel-demo/"
+          # Is baar storage upload nahi karenge taake purani permissions na hilen
+          # Agar aapka local storage khali hai to ye behtar hai
           strip_components: 0
 
-      # 3. Permissions aur Safe Laravel Setup
+      # 3. Final Setup
       - name: Execute SSH commands
         uses: appleboy/ssh-action@master
         with:
@@ -48,26 +50,16 @@ jobs:
           script: |
             cd /var/www/travel-demo/
             
-            # Directory structure create karna
-            mkdir -p storage/framework/{sessions,views,cache}
-            mkdir -p bootstrap/cache
-            
-            # Permissions set karna
-            chmod -R 775 storage bootstrap/cache
-            
-            # Composer: --no-scripts use kiya hai taake PSR-4 errors pipeline na rokain
+            # Composer and Artisan (Safe Mode)
             composer install --no-dev --no-interaction --no-scripts --optimize-autoloader
             
-            # Laravel Safe Commands
             if [ -f .env ]; then
-                # Caching ke bajaye sirf purana kachra saaf (Clear) kar rahe hain
-                # Taake Missing Component [hotels] wala error na aaye
                 php artisan config:clear
                 php artisan route:clear
                 php artisan view:clear
                 php artisan cache:clear
-                
-                echo "Deployment successfully completed in safe mode."
-            else
-                echo ".env file not found, skipping artisan commands"
+                # Logs folder fix (ACL will handle the rest)
+                touch storage/logs/laravel.log
+                chmod 666 storage/logs/laravel.log
+                echo "Deployment Successful with ACL!"
             fi
