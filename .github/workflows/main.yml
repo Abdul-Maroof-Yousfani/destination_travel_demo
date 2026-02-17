@@ -7,12 +7,26 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 1. Files upload karna (Khali folder me saari files chali jayengi)
+      # 1. Pehle purani files cleanup (taake overwrite/utime error na aaye)
+      - name: Pre-deployment Cleanup
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SFTP_HOST }}
+          username: ${{ secrets.SFTP_USER }}
+          password: ${{ secrets.SFTP_PASS }}
+          port: 22
+          script: |
+            # Project folder mein jaein, agar folder nahi hai to create karein
+            mkdir -p /var/www/travel-demo/
+            cd /var/www/travel-demo/
+            # .env file ko chor kar baaki sab delete karein taake scp fresh copy kare
+            find . -maxdepth 1 ! -name '.env' ! -name '.' -exec rm -rf {} +
+
+      # 2. Files upload karna
       - name: Copy files via SFTP
         uses: appleboy/scp-action@master
         with:
@@ -24,31 +38,28 @@ jobs:
           target: "/var/www/travel-demo/"
           strip_components: 0
 
-      
-      # 2. Permissions aur Laravel setup
+      # 3. Permissions aur Laravel setup
       - name: Execute SSH commands
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SFTP_HOST }}
           username: ${{ secrets.SFTP_USER }}
           password: ${{ secrets.SFTP_PASS }}
+          port: 22
           script: |
-            cd /var/www/travel-demo
+            cd /var/www/travel-demo/
             
-            # Directory structure create karna (Sudo ki zaroorat nahi)
+            # Directory structure ensure karna
             mkdir -p storage/framework/{sessions,views,cache}
             mkdir -p bootstrap/cache
-
-            # Permissions set karna (Sirf un folders par jo user owned hain)
-            find . -type d -exec chmod 775 {} \;
-            find . -type f -exec chmod 664 {} \;
+            
+            # Permissions set karna (Deployer user ke liye)
             chmod -R 775 storage bootstrap/cache
-
-            # Laravel Optimization
-            # Agar composer path me nahi hai to full path use karein: /usr/local/bin/composer
+            
+            # Composer install (agar path ka issue ho to full path `/usr/local/bin/composer` use karein)
             composer install --no-dev --optimize-autoloader --no-interaction
-
-            # Cache clear (ye tabhi chalega jab .env file server par maujood ho)
+            
+            # Laravel Optimization
             if [ -f .env ]; then
                 php artisan config:cache
                 php artisan route:cache
@@ -57,4 +68,3 @@ jobs:
             else
                 echo ".env file not found, skipping artisan commands"
             fi
-
